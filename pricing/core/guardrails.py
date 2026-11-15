@@ -47,8 +47,10 @@ def apply_guardrails(
             actions.append(GuardrailAction(rule, price, target, detail, market))
             price = target
 
-    clamp("margin_floor", floor, None, "minimum allowed price (policy pack)")
+    # Order matters: ceiling first, floor LAST among absolutes so the legal
+    # minimum can never be pulled back down by a ceiling or a relative move.
     clamp("margin_ceiling", None, ceiling, "maximum allowed price (policy pack)")
+    clamp("margin_floor", floor, None, "minimum allowed price (policy pack)")
     if last_price > 0:
         # Step bounds are intersected with the policy band: a relative move may
         # never violate an absolute rule. If the ranges are disjoint (bad pack

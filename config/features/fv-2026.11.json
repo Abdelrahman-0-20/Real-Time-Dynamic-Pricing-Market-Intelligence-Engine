@@ -1,0 +1,20 @@
+{
+  "model_input_version": "fv-2026.11",
+  "features": {
+    "demand_rate_1h": { "ttl_ms": 300000 },
+    "demand_rate_24h": { "ttl_ms": 1800000 },
+    "inventory_level": { "ttl_ms": 60000, "critical": true },
+    "sell_through_24h": { "ttl_ms": 1800000 },
+    "supply_eta_hours": { "ttl_ms": 3600000 },
+    "base_cost": { "ttl_ms": 86400000, "critical": true },
+    "price_last": { "ttl_ms": 300000 },
+    "category_median_price": { "ttl_ms": 3600000 },
+    "competitor_price": { "ttl_ms": 1800000 },
+    "competitor_price_delta_pct": { "ttl_ms": 1800000 },
+    "competitor_in_stock": { "ttl_ms": 1800000 },
+    "signal_competitor_stockout": { "ttl_ms": 86400000 },
+    "signal_competitor_price_change": { "ttl_ms": 86400000 },
+    "signal_seasonal_promotion": { "ttl_ms": 259200000 },
+    "signal_demand_surge": { "ttl_ms": 86400000 }
+  }
+}

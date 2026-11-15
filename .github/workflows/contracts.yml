@@ -18,3 +18,7 @@ jobs:
         run: python -m pytest -q
       - name: Import-linter (ADR-002 hexagonal boundary)
         run: lint-imports
+      - name: Train baseline model
+        run: python -m pricing.training.train --n 8000
+      - name: Latency gate (CI threshold, see docs/latency-harness.md)
+        run: python benchmarks/latency.py --n 2000 --warmup 200 --max-p99 150 --json

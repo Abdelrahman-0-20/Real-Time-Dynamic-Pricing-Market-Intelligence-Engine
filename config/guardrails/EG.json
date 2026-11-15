@@ -1,0 +1,10 @@
+{
+  "market": "EG",
+  "version": "v0",
+  "status": "placeholder",
+  "status_note": "TODO-LEGAL: conventional commercial defaults pending legal review — ADR-008 makes that review a blocking gate before status becomes 'approved'.",
+  "min_margin_pct": 0.15,
+  "max_price_multiple": 1.3,
+  "max_step_pct": 0.10,
+  "parity_enabled": false
+}

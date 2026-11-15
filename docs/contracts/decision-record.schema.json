@@ -34,6 +34,17 @@
       "enum": ["treatment", "holdout"],
       "description": "5% holdout arm keeps the baseline policy so revenue drift has a measurable control (step-1 decision)."
     },
+    "policy_pack": {
+      "type": "object",
+      "description": "Which guardrail pack was applied (ADR-008) — answers 'which rule was in effect when we priced this?'.",
+      "additionalProperties": false,
+      "required": ["market", "version", "status"],
+      "properties": {
+        "market": { "type": "string" },
+        "version": { "type": "string" },
+        "status": { "type": "string", "description": "placeholder | approved | derived | safe-default" }
+      }
+    },
     "model_input": {
       "type": "object",
       "description": "Full feature snapshot as scored (or a ref to immutable storage holding it).",

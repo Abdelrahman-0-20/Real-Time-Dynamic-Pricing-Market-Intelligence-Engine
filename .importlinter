@@ -1,6 +1,6 @@
 ; import-linter configuration — ADR-002's dependency rule as a machine contract.
-; Enforced today by tests/test_dependency_direction.py (AST scan, no install needed);
-; this config takes over for `import-linter` runs once the package is installable.
+; Enforced today by tests/test_dependency_direction.py (AST scan, no install
+; needed); this config is verified in CI alongside it.
 
 [importlinter]
 root_package = pricing
@@ -14,13 +14,23 @@ layers =
     pricing.adapters
     pricing.core
 
-; The pricing core may not import vendor/IO libraries: no Redis, no Kafka, no
-; model server SDKs, no HTTP clients. All I/O lives behind ports in pricing.adapters.
+; The application layer coordinates through ports — it may use the core, and
+; nothing else inside the system.
+[importlinter:contract:app-depends-on-core-only]
+name = app depends on core only
+type = layers
+layers =
+    pricing.app
+    pricing.core
+
+; The pricing core may not import vendor/IO libraries: no NumPy, no Redis, no
+; Kafka, no model server SDKs, no HTTP clients. All I/O lives behind ports.
 [importlinter:contract:core-has-no-vendor-imports]
 name = core has no vendor imports
 type = forbidden
 source_modules = pricing.core
 forbidden_modules =
+    numpy
     redis
     feast
     kafka
@@ -34,3 +44,24 @@ forbidden_modules =
     onnxruntime
     xgboost
     lightgbm
+    sklearn
+    pricing.adapters
+    pricing.app
+
+; Same rule for the application layer, plus: never reach for a concrete adapter.
+[importlinter:contract:app-has-no-adapters]
+name = app has no adapters
+type = forbidden
+source_modules = pricing.app
+forbidden_modules =
+    numpy
+    xgboost
+    lightgbm
+    sklearn
+    redis
+    kafka
+    flask
+    fastapi
+    requests
+    httpx
+    pricing.adapters

@@ -17,17 +17,22 @@ Design package: merges real-time streaming telemetry with scraped web/news intel
 3. **[docs/contracts/](docs/contracts/)** — five JSON Schemas defining every boundary (telemetry, documents, signals, features, decisions), enforced by CI.
 4. **[docs/pricingctl.md](docs/pricingctl.md)** — the operator CLI: verb-noun commands, dual human/JSON output, stable exit codes, <100 ms startup, and the `price explain` HITL review view.
 
-## Enforced in CI (step 2)
+## Enforced in CI
 
 ```bash
-python -m pytest -q     # schema gate + adversarial fixtures + ADR-002 dependency rule
+python -m pytest -q                    # 69 tests: schema gate, hexagonal boundary, guardrails, serve path, training, harness
+lint-imports                           # 4 contracts: adapters→core, app→core, core/app have no vendor imports
+python -m pricing.training.train       # baseline XGBoost + anti-leakage control model
+python benchmarks/latency.py           # p99 gate: PASS at 0.8 ms vs 50 ms budget (dev hardware)
 ```
 
-- **[tests/](tests/)** — fixtures for every contract: valid documents must pass, invalid/adversarial ones (injected instructions, low confidence, guardrail bypass, hidden staleness) must fail the gate.
-- **[.importlinter](.importlinter)** — ADR-002's dependency rule as config; mirrored by an AST test so it holds before the package is installable.
+- **[tests/](tests/)** — fixtures for every contract (valid pass, adversarial fail for the right reason) plus end-to-end serve-path tests: stale flagged, critical-dead → rule-based fallback, model failure → still a price, unknown market → stricter pack, schema-valid DecisionRecord every time.
+- **[.importlinter](.importlinter)** — ADR-002's dependency rule as config, mirrored by AST tests.
+- **[benchmarks/latency.py](benchmarks/latency.py)** — protocol from [docs/latency-harness.md](docs/latency-harness.md): stage-level p99, blame on failure, `--json` for pipes, exit codes as gates.
 
 ## Status
 
-- **Step 1 (business decisions): complete** — see [ARCHITECTURE §10](docs/ARCHITECTURE.md) for the four decisions and their design effects.
-- **Step 2 (contract enforcement): complete** — schemas are executable gates, not prose.
-- **Next: step 3** — the hot-path vertical slice (Kafka → Flink → cache → XGBoost → guardrails → DecisionRecord) with the p99 latency harness.
+- **Step 1 (business decisions): complete** — see [ARCHITECTURE §10](docs/ARCHITECTURE.md).
+- **Step 2 (contract enforcement): complete** — schemas are executable gates.
+- **Step 3 (hot-path vertical slice): complete** — synthetic market → trained XGBoost → in-memory ports → guardrails → schema-valid DecisionRecord, with the latency gate green (p99 0.8 ms local, code path only).
+- **Next: step 4** — cold path (Airflow + Docling crawl → Vector DB → ADR-006 extraction pipeline → `MarketSignal` → feature writer), then real Kafka/Flink/Redis adapters behind the existing ports.
