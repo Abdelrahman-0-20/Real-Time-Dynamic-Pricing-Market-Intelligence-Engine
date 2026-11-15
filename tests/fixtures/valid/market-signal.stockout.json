@@ -1,0 +1,22 @@
+{
+  "signal_id": "1b9f3a52-2f8e-4d0b-9a71-6c5e8d2f4a10",
+  "signal_type": "competitor_stockout",
+  "subject": {
+    "sku": "SKU-4471",
+    "competitor": "CompAlpha"
+  },
+  "polarity": "negative",
+  "magnitude": null,
+  "observed_at": "2026-11-15T06:00:00Z",
+  "confidence": 0.93,
+  "source_trust": 0.85,
+  "validity_hours": 24,
+  "provenance": {
+    "doc_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    "extractor": "extractor_pricing_page_v3",
+    "model": "llm-x-1",
+    "trace_id": "tr-123",
+    "prompt_version": "v3"
+  },
+  "evidence_span": "Out of stock \u2014 back soon"
+}

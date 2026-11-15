@@ -1,0 +1,20 @@
+{
+  "signal_id": "1b9f3a52-2f8e-4d0b-9a71-6c5e8d2f4a10",
+  "signal_type": "seasonal_promotion",
+  "subject": {
+    "sku": "SKU-4471"
+  },
+  "polarity": "positive",
+  "magnitude": 15.0,
+  "observed_at": "2026-11-15T06:00:00Z",
+  "confidence": 0.4,
+  "source_trust": 0.5,
+  "validity_hours": 24,
+  "provenance": {
+    "doc_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    "extractor": "extractor_news_v2",
+    "model": "llm-x-1",
+    "trace_id": "tr-789",
+    "prompt_version": "v2"
+  }
+}

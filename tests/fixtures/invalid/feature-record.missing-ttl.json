@@ -1,0 +1,7 @@
+{
+  "entity_key": "sku:SKU-4471",
+  "feature_name": "demand_rate_1h",
+  "value": 42.0,
+  "event_time": "2026-11-15T06:50:00Z",
+  "source": "telemetry_flink"
+}

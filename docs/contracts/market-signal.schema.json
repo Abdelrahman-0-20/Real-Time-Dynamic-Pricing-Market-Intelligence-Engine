@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pricing.local/schemas/market-signal.schema.json",
+  "title": "MarketSignal",
+  "description": "The ONLY shape the LLM extraction pipeline may write. Schema gate: anything not matching this is quarantined, never written. Confidence decays server-side (confidence * exp(-dt/tau)) before it becomes a model feature.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["signal_id", "signal_type", "subject", "observed_at", "confidence", "source_trust", "provenance", "polarity"],
+  "properties": {
+    "signal_id": { "type": "string", "format": "uuid" },
+    "signal_type": {
+      "enum": ["competitor_stockout", "competitor_price_change", "seasonal_promotion", "demand_surge", "supply_disruption", "competitor_description_change"],
+      "description": "Closed vocabulary — an open enum would let injected text define new signal types."
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sku"],
+      "properties": {
+        "sku": { "type": "string" },
+        "competitor": { "type": "string" },
+        "category": { "type": "string" }
+      }
+    },
+    "polarity": { "enum": ["positive", "negative", "neutral"], "description": "Effect direction on our demand/price pressure." },
+    "magnitude": { "type": ["number", "null"], "description": "e.g. promo discount in percent; null when not quantifiable." },
+    "observed_at": { "type": "string", "format": "date-time", "description": "When the fact was true in the world (from content), not when extracted." },
+    "confidence": { "type": "number", "minimum": 0.7, "maximum": 1, "description": "Extractor-stated confidence. Schema IS the gate: anything below 0.7 is not a MarketSignal and can only enter quarantine (SignalQuarantined)." },
+    "source_trust": { "type": "number", "minimum": 0, "maximum": 1, "description": "Per-source reliability score maintained by MLOps; weights contradiction resolution." },
+    "validity_hours": { "type": "integer", "minimum": 1, "maximum": 720, "description": "Feature TTL for this signal." },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["doc_id", "extractor", "model", "trace_id"],
+      "properties": {
+        "doc_id": { "type": "string", "format": "uuid" },
+        "extractor": { "type": "string", "description": "e.g. extractor_pricing_page_v3" },
+        "model": { "type": "string" },
+        "trace_id": { "type": "string", "description": "Correlates to the extraction span and, downstream, to decisions." },
+        "prompt_version": { "type": "string" }
+      }
+    },
+    "evidence_span": { "type": "string", "maxLength": 500, "description": "Verbatim quote from the source used as evidence (audit only)." }
+  }
+}

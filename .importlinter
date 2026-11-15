@@ -1,0 +1,36 @@
+; import-linter configuration — ADR-002's dependency rule as a machine contract.
+; Enforced today by tests/test_dependency_direction.py (AST scan, no install needed);
+; this config takes over for `import-linter` runs once the package is installable.
+
+[importlinter]
+root_package = pricing
+include_external_packages = true
+
+; Adapters depend on the core, never the reverse — guardrails stay framework-free.
+[importlinter:contract:hexagonal-dependency-direction]
+name = hexagonal dependency direction
+type = layers
+layers =
+    pricing.adapters
+    pricing.core
+
+; The pricing core may not import vendor/IO libraries: no Redis, no Kafka, no
+; model server SDKs, no HTTP clients. All I/O lives behind ports in pricing.adapters.
+[importlinter:contract:core-has-no-vendor-imports]
+name = core has no vendor imports
+type = forbidden
+source_modules = pricing.core
+forbidden_modules =
+    redis
+    feast
+    kafka
+    confluent_kafka
+    flask
+    fastapi
+    sqlalchemy
+    psycopg
+    requests
+    httpx
+    onnxruntime
+    xgboost
+    lightgbm

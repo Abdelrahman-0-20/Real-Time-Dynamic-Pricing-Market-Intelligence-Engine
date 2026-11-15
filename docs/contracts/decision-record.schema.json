@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pricing.local/schemas/decision-record.schema.json",
+  "title": "DecisionRecord",
+  "description": "Append-only audit primitive written (async) for every served price. One artifact serving four consumers: audit log, replay/debug source, training-set builder, drift-monitor input. The model_input snapshot makes any historical price exactly reproducible.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decision_id", "trace_id", "sku", "requested_at", "served_price", "currency", "model_version", "trigger", "policy_arm", "model_input", "guardrail_actions", "degraded", "fingerprint"],
+  "properties": {
+    "decision_id": { "type": "string", "format": "uuid" },
+    "trace_id": { "type": "string", "description": "Shared end-to-end: API → inference → guardrails → log." },
+    "sku": { "type": "string" },
+    "requested_at": { "type": "string", "format": "date-time" },
+    "served_price": { "type": "number", "minimum": 0 },
+    "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+    "model_version": { "type": "string", "description": "Registry version, e.g. xgb-v14." },
+    "trigger": {
+      "enum": ["model", "signal_trigger", "rule_fallback", "manual"],
+      "description": "What produced the price. signal_trigger = ADR-007 channel (closed signal set, corroboration required, still guardrailed)."
+    },
+    "trigger_evidence": {
+      "type": "object",
+      "description": "Required when trigger = signal_trigger; absent otherwise.",
+      "additionalProperties": false,
+      "required": ["signal_id", "confidence", "source_trust", "corroboration"],
+      "properties": {
+        "signal_id": { "type": "string", "format": "uuid" },
+        "confidence": { "type": "number", "minimum": 0.9, "description": "ADR-007 rail: trigger confidence must be >= 0.90." },
+        "source_trust": { "type": "number", "minimum": 0, "maximum": 1 },
+        "corroboration": { "enum": ["trusted_source", "second_signal_within_15m"] }
+      }
+    },
+    "policy_arm": {
+      "enum": ["treatment", "holdout"],
+      "description": "5% holdout arm keeps the baseline policy so revenue drift has a measurable control (step-1 decision)."
+    },
+    "model_input": {
+      "type": "object",
+      "description": "Full feature snapshot as scored (or a ref to immutable storage holding it).",
+      "required": ["features"],
+      "properties": {
+        "features": { "type": "object", "additionalProperties": { "type": ["number", "boolean", "null"] } },
+        "snapshot_ref": { "type": ["string", "null"] }
+      }
+    },
+    "stale_features": { "type": "array", "items": { "type": "string" }, "description": "Features served past TTL but below 3x TTL." },
+    "dropped_features": { "type": "array", "items": { "type": "string" }, "description": "Features >= 3x TTL: removed before scoring." },
+    "guardrail_actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rule", "from_price", "to_price"],
+        "properties": {
+          "rule": { "enum": ["margin_floor", "margin_ceiling", "max_step_pct", "parity_clamp", "min_price_policy", "band_clamp", "regulatory_clamp", "market_specific_rule"] },
+          "from_price": { "type": "number" },
+          "to_price": { "type": "number" },
+          "market": { "type": ["string", "null"], "description": "Market code (ADR-008) for regulatory/market rules." },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "unclamped_price": { "type": ["number", "null"], "description": "Raw model output before guardrails — required for the explain/HITL view." },
+    "degraded": { "type": "boolean", "description": "True when rule-based fallback or critical features were missing." },
+    "fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$", "description": "hash(request, model_version, feature_snapshot) — idempotency + replay key." }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "trigger": { "const": "signal_trigger" } }, "required": ["trigger"] },
+      "then": { "required": ["trigger_evidence"], "description": "ADR-007 rail: a signal-triggered decision must carry its evidence (confidence >= 0.90 + corroboration)." }
+    },
+    {
+      "if": { "properties": { "trigger": { "enum": ["model", "rule_fallback", "manual"] } }, "required": ["trigger"] },
+      "then": { "not": { "required": ["trigger_evidence"] }, "description": "Evidence belongs only to the signal_trigger channel — its absence elsewhere would hide provenance gaps." }
+    }
+  ]
+}

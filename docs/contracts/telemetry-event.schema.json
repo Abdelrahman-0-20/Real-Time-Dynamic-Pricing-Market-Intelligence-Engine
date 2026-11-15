@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pricing.local/schemas/telemetry-event.schema.json",
+  "title": "TelemetryEvent",
+  "description": "Supply/demand event emitted to Kafka. Producer contract for the Telemetry context; consumed by Flink, never directly by Pricing Decision.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "event_type", "event_time", "sku", "source"],
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid", "description": "Idempotency key; replays must be safe." },
+    "event_type": { "enum": ["DemandObserved", "InventoryChanged", "SupplyObserved"] },
+    "event_time": { "type": "string", "format": "date-time", "description": "Source-clock time of the fact. Drives point-in-time correctness; ingest time is NOT a substitute." },
+    "sku": { "type": "string", "minLength": 1 },
+    "source": { "type": "string", "description": "Producing system, e.g. pos-eu-1, wms-primary." },
+    "quantity": { "type": "number", "minimum": 0, "description": "Units observed/changed. Negative deltas allowed only for InventoryChanged." },
+    "unit_price_cents": { "type": "integer", "minimum": 0 },
+    "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+    "attrs": { "type": "object", "additionalProperties": { "type": ["string", "number", "boolean"] } }
+  }
+}

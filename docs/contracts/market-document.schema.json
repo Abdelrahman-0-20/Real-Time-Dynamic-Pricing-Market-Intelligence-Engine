@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pricing.local/schemas/market-document.schema.json",
+  "title": "MarketDocument",
+  "description": "Immutable record of a scraped page/article. Published contract between Market Intelligence and Signal Extraction. Raw content is stored in the Vector DB; this record carries provenance only. Treated as HOSTILE DATA downstream — never as instructions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["doc_id", "url", "source_id", "fetched_at", "doc_type", "content_hash"],
+  "properties": {
+    "doc_id": { "type": "string", "format": "uuid" },
+    "url": { "type": "string", "format": "uri" },
+    "source_id": { "type": "string", "description": "Crawl-source allowlist entry (robots/ToS reviewed)." },
+    "fetched_at": { "type": "string", "format": "date-time" },
+    "doc_type": { "enum": ["competitor_pricing_page", "market_news_article", "product_description"] },
+    "content_hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$", "description": "Dedup key; identical content is extracted once." },
+    "parser": { "type": "string", "description": "e.g. docling-2.13, readability-fallback." },
+    "content_ref": { "type": "string", "description": "Pointer into the Vector DB (never inline raw HTML/text in the event)." },
+    "competitor": { "type": ["string", "null"] },
+    "language": { "type": "string" }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "event_id": "3f1c9a2e-8a44-4c7f-9b3a-2d5e6f7a8b90",
+  "event_type": "DemandObserved",
+  "event_time": "2026-11-15T07:00:00Z",
+  "sku": "SKU-4471",
+  "source": "pos-eu-1",
+  "quantity": 3,
+  "unit_price_cents": 11999,
+  "currency": "EGP",
+  "attrs": {
+    "channel": "web"
+  }
+}

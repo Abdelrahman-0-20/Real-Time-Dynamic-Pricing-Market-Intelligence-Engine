@@ -1,0 +1,17 @@
+{
+  "decision_id": "e3b0c442-98fc-4c14-9afb-84c7b0798b20",
+  "trace_id": "tr-abc",
+  "sku": "SKU-4471",
+  "requested_at": "2026-11-15T07:02:00Z",
+  "served_price": 199.99,
+  "currency": "EGP",
+  "model_version": "xgb-v14",
+  "trigger": "signal_trigger",
+  "policy_arm": "treatment",
+  "model_input": {
+    "features": {}
+  },
+  "guardrail_actions": [],
+  "degraded": false,
+  "fingerprint": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+}

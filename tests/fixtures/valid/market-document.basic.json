@@ -1,0 +1,12 @@
+{
+  "doc_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "url": "https://competitor.example/pricing",
+  "source_id": "comp-alpha",
+  "fetched_at": "2026-11-15T06:30:00Z",
+  "doc_type": "competitor_pricing_page",
+  "content_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+  "parser": "docling-2.13",
+  "content_ref": "vectordb://docs/7c9e",
+  "competitor": "CompAlpha",
+  "language": "en"
+}

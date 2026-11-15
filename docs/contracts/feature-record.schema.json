@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pricing.local/schemas/feature-record.schema.json",
+  "title": "FeatureRecord",
+  "description": "The single join point of the hot and cold paths (ADR-001). Every value carries its own freshness so staleness can never be hidden (ARCHITECTURE §4.2): age < ttl = normal, ttl..3x ttl = flagged stale, >= 3x ttl = dropped/degraded.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["entity_key", "feature_name", "value", "event_time", "ttl_ms", "source"],
+  "properties": {
+    "entity_key": { "type": "string", "description": "e.g. sku:SKU-4471 or category:electronics" },
+    "feature_name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$", "description": "Stable, versioned name — renaming a feature is a breaking change (model input contract)." },
+    "value": { "type": ["number", "boolean", "string"], "description": "Numeric for model inputs; string only for embeddings refs." },
+    "event_time": { "type": "string", "format": "date-time", "description": "Time the underlying fact was true." },
+    "written_at": { "type": "string", "format": "date-time" },
+    "ttl_ms": { "type": "integer", "minimum": 1000 },
+    "source": { "enum": ["telemetry_flink", "llm_signal", "crawler_direct", "decay_fill", "imputed_default"] },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1, "description": "Present for llm_signal; decayed before serving." },
+    "decay_tau_minutes": { "type": ["integer", "null"], "description": "Decay constant for confidence-weighted signals." },
+    "model_input_version": { "type": "string", "description": "Training/serving feature-set version; training joins on this to avoid skew." }
+  }
+}

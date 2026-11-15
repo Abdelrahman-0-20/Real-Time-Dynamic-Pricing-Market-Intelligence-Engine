@@ -1,0 +1,8 @@
+{
+  "entity_key": "sku:SKU-4471",
+  "feature_name": "Competitor Price!",
+  "value": 124.5,
+  "event_time": "2026-11-15T06:50:00Z",
+  "ttl_ms": 1800000,
+  "source": "crawler_direct"
+}

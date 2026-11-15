@@ -1,0 +1,20 @@
+name: contracts
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: pip install jsonschema pytest import-linter
+      - name: Contract gate + dependency rule (pytest)
+        run: python -m pytest -q
+      - name: Import-linter (ADR-002 hexagonal boundary)
+        run: lint-imports

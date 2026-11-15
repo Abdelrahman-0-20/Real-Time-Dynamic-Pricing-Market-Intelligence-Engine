@@ -1,0 +1,7 @@
+{
+  "event_id": "3f1c9a2e-8a44-4c7f-9b3a-2d5e6f7a8b90",
+  "event_type": "DemandObserved",
+  "sku": "SKU-4471",
+  "source": "pos-eu-1",
+  "quantity": 3
+}
