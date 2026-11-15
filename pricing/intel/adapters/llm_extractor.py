@@ -11,6 +11,11 @@ minutes of latency are free). Defense layers for hostile page text:
 Subject binding (sku vs category) is decided by the parser's entities, never
 by the model — the model can only say WHICH signals a chunk contains.
 
+Transport: subprocess `curl` (ADR-011). Measured on this box: curl succeeds
+in ~1s against Ollama 0.40.16 where BOTH urllib and httpx hang past their
+enforced timeouts (reproduced N times, byte-identical payloads) — the JSON
+contract over the wire is unchanged, only the pipe differs.
+
 Fallback chain (ADR-006): any failure raises ExtractionError; the pipeline
 falls back to the lexicon extractor, then to quarantine+breaker.
 """
@@ -19,12 +24,16 @@ from __future__ import annotations
 import json
 import os
 import re
-import urllib.error
-import urllib.request
+import subprocess
 
 DEFAULT_BASE_URL = "http://localhost:11434/v1"
 DEFAULT_MODEL = "qwen2.5:1.5b"
-DEFAULT_TIMEOUT = 60.0
+# First call after a server start loads the model into RAM — measured >60s on
+# a loaded dev box (steady state: ~1-2s). Bound generation AND allow cold start.
+DEFAULT_TIMEOUT = 180.0
+# Ollama's OpenAI-compat default is UNLIMITED generation — without a bound a
+# 1.5B model rambles for minutes (measured: >180s hang vs 1.5s bounded).
+MAX_TOKENS = 200
 
 SIGNAL_TYPES = [
     "competitor_stockout",
@@ -91,31 +100,56 @@ class OpenAICompatExtractor:
             "format": "json",
             "stream": False,
             "temperature": 0,
+            "max_tokens": MAX_TOKENS,
             "messages": [
                 {"role": "system", "content": _SYSTEM},
                 {"role": "user",
                  "content": f"<document>\n{text.strip()[:8000]}\n</document>"},
             ],
         }).encode("utf-8")
-        request = urllib.request.Request(
-            self.endpoint, data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
+        # Transport: subprocess curl (see module docstring — measured, ADR-011).
         try:
-            with urllib.request.urlopen(request, timeout=self._timeout) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as exc:
+            result = subprocess.run(
+                [
+                    "curl", "-sS", "--fail-with-body",
+                    "--max-time", str(max(1, int(self._timeout))),
+                    "-H", "Content-Type: application/json",
+                    "--data-binary", "@-",
+                    self.endpoint,
+                ],
+                input=body, capture_output=True, timeout=self._timeout + 15,
+            )
+        except FileNotFoundError:
             raise ExtractionError(
-                f"LLM endpoint returned HTTP {exc.code} at {self.endpoint}. "
-                f"Fix: start the server (`ollama serve`) and check OLLAMA_URL/"
-                f"OLLAMA_MODEL (model '{self._model}')."
+                "curl not found on PATH (required for the LLM transport). "
+                "Fix: install curl (e.g. `sudo apt install curl`)."
             ) from None
-        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        except subprocess.TimeoutExpired:
             raise ExtractionError(
-                f"LLM endpoint unreachable at {self.endpoint} ({exc}). "
-                "Fix: `ollama serve` must be running; set OLLAMA_URL if it "
-                "listens elsewhere."
+                f"LLM call exceeded {self._timeout}s at {self.endpoint}. "
+                "Fix: check `ollama serve` health and system load."
+            ) from None
+
+        if result.returncode != 0:
+            stderr = result.stderr.decode("utf-8", errors="replace")[:200]
+            if result.returncode == 28:  # CURLE_OPERATION_TIMEDOUT
+                raise ExtractionError(
+                    f"LLM call timed out after {int(self._timeout)}s at "
+                    f"{self.endpoint}. Fix: check `ollama serve` health and "
+                    "system load; raise the timeout on OpenAICompatExtractor."
+                ) from None
+            raise ExtractionError(
+                f"LLM endpoint error (curl exit {result.returncode}) at "
+                f"{self.endpoint}: {stderr} Fix: `ollama serve` must be "
+                f"running; check OLLAMA_URL/OLLAMA_MODEL (model '{self._model}')."
+            ) from None
+
+        try:
+            payload = json.loads(result.stdout.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            raise ExtractionError(
+                f"endpoint returned non-JSON ({exc}). Fix: endpoint must be "
+                "OpenAI-compatible (/v1/chat/completions)."
             ) from None
 
         try:
@@ -128,9 +162,20 @@ class OpenAICompatExtractor:
             ) from None
         return self._parse_candidates(content)
 
+    @staticmethod
+    def _strip_fences(content: str) -> str:
+        """Models love ```json fences even when told 'JSON only' — strip them."""
+        text = content.strip()
+        if text.startswith("```"):
+            first_newline = text.find("\n")
+            text = text[first_newline + 1:] if first_newline != -1 else text
+            if text.rstrip().endswith("```"):
+                text = text.rstrip()[:-3]
+        return text.strip()
+
     def _parse_candidates(self, content: str) -> list[dict]:
         try:
-            parsed = json.loads(content)
+            parsed = json.loads(self._strip_fences(content))
         except json.JSONDecodeError:
             raise ExtractionError(
                 "model returned non-JSON despite format=json. "

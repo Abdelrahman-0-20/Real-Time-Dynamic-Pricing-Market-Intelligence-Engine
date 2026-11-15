@@ -114,6 +114,14 @@ def test_non_json_response_raises_with_the_fix(fake_llm) -> None:
         _extractor(base_url).extract(_parsed(), _source())
 
 
+def test_markdown_fences_are_unwrapped(fake_llm) -> None:
+    """Models fence JSON even when told 'JSON only' — must not break the gate."""
+    base_url, state = fake_llm
+    state["content"] = '```json\n[{"signal_type": "demand_surge", "confidence": 0.85}]\n```'
+    candidates = _extractor(base_url).extract(_parsed(), _source())
+    assert [c["signal_type"] for c in candidates] == ["demand_surge"]
+
+
 def test_http_500_names_the_fix(fake_llm) -> None:
     base_url, state = fake_llm
     state["status"] = 500
