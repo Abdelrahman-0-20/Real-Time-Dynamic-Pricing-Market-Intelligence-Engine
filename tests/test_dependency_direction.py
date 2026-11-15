@@ -99,6 +99,27 @@ def test_intel_pipeline_is_pure_of_its_adapters() -> None:
     )
 
 
+def test_ingest_contains_no_broker_or_vendor_imports() -> None:
+    """The Flink job's logic (pricing/ingest) may not import brokers/frameworks.
+
+    ADR-010: this package IS the portable windowing logic — the moment it
+    imports a runner or a client, the Flink swap stops being a swap.
+    """
+    ingest = ROOT / "pricing" / "ingest"
+    assert ingest.is_dir(), "pricing/ingest missing — stream context must exist"
+    files = sorted(ingest.rglob("*.py"))
+    assert files
+    forbidden = VENDOR | {"pricing.adapters", "pricing.intel.adapters",
+                          "confluent_kafka", "redis", "fakeredis"}
+    violations = [v for f in files for v in _violations(f, forbidden)]
+    assert not violations, (
+        "ADR-010 purity violation(s) in pricing.ingest:\n  "
+        + "\n  ".join(violations)
+        + "\n  Fix: windowing/runner stay broker-free; clients live in "
+          "pricing.adapters."
+    )
+
+
 def test_adapters_do_not_reimplement_domain_rules() -> None:
     """Adapters may import the core, but must not smuggle guardrail logic back."""
     adapters = ROOT / "pricing" / "adapters"

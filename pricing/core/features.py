@@ -99,7 +99,10 @@ def classify(
             degraded = True
             continue
         age = now - stored.event_time
-        if age >= timedelta(milliseconds=3 * stored.ttl_ms):
+        # The dictionary (manifest) is THE freshness contract — both thresholds
+        # derive from it, so a writer stamping a different TTL can never make
+        # "stale" and "dropped" disagree with each other.
+        if age >= timedelta(milliseconds=3 * spec.ttl_ms):
             dropped.append(name)
             if spec.critical:
                 degraded = True
