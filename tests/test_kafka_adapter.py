@@ -59,6 +59,18 @@ def test_construction_never_opens_a_connection() -> None:
     reason="set KAFKA_BROKER=host:9092 to run broker integration (ADR-010 flip-on)",
 )
 def test_broker_roundtrip_integration() -> None:
+    from confluent_kafka.admin import AdminClient, NewTopic
+
+    # Deterministic: create the topic instead of depending on auto-create.
+    admin = AdminClient({"bootstrap.servers": os.environ["KAFKA_BROKER"]})
+    for _, future in admin.create_topics(
+        [NewTopic("telemetry.raw", num_partitions=1, replication_factor=1)]
+    ).items():
+        try:
+            future.result()
+        except Exception:  # noqa: BLE001 — topic already exists is fine
+            pass
+
     source = KafkaEventSource(bootstrap=os.environ["KAFKA_BROKER"],
                               group="pricing-tests", topics=["telemetry.raw"])
     try:

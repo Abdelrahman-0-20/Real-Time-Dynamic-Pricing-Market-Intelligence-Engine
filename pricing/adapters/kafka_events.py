@@ -33,7 +33,13 @@ class KafkaEventSource:
         self._topics = topics or ["telemetry.raw"]
         self._consumer = None  # lazy: construction must not open sockets
         self._extra = config or {}
+        self._unknown_topic_polls = 0
         self._validator = self._load_validator(schema_path)
+
+    # Topic auto-creation/startup is async: tolerate a bounded window of
+    # UNKNOWN_TOPIC, then fail LOUDLY — a consumer that reports "healthy but
+    # empty" against a missing topic is a silent failure, the worst kind.
+    _MAX_UNKNOWN_TOPIC_POLLS = 50
 
     @staticmethod
     def _load_validator(schema_path: str | None) -> Draft202012Validator:
@@ -97,9 +103,21 @@ class KafkaEventSource:
         if message is None:
             return None
         if message.error():
-            if message.error().code() == KafkaError._PARTITION_EOF:
+            code = message.error().code()
+            if code == KafkaError._PARTITION_EOF:
                 return None
+            if code == KafkaError.UNKNOWN_TOPIC_OR_PARTITION:
+                self._unknown_topic_polls += 1
+                if self._unknown_topic_polls <= self._MAX_UNKNOWN_TOPIC_POLLS:
+                    return None  # bounded startup window (topic auto-creation)
+                raise ConnectionError(
+                    f"topic(s) {self._topics} still unavailable after "
+                    f"{self._unknown_topic_polls} polls on {self._bootstrap}. "
+                    "Fix: create the topic (auto-create may be disabled) or "
+                    "check the broker address."
+                )
             raise ConnectionError(f"kafka error: {message.error()}")
+        self._unknown_topic_polls = 0
         return self.decode(message.value())
 
     def close(self) -> None:
