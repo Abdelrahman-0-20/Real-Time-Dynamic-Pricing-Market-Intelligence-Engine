@@ -14,15 +14,25 @@ class JsonlDecisionLog:
     def __init__(self, path: str | pathlib.Path) -> None:
         self._path = pathlib.Path(path)
         self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._handle = None  # persistent append handle: open/close per request
+                           # showed up in HTTP latency tails (measured)
 
     @property
     def path(self) -> pathlib.Path:
         return self._path
 
     def append(self, record: dict) -> None:
-        line = json.dumps(record, separators=(",", ":"), allow_nan=False)
-        with self._path.open("a", encoding="utf-8") as handle:
-            handle.write(line + "\n")
+        line = json.dumps(record, separators=(",", ":"), allow_nan=False) + "\n"
+        if self._handle is None:
+            self._handle = self._path.open("a", encoding="utf-8")
+        self._handle.write(line)
+        self._handle.flush()  # to the OS — durability of the batch, not fsync
+                              # per decision (fsync would own the hot path)
+
+    def close(self) -> None:
+        if self._handle is not None:
+            self._handle.close()
+            self._handle = None
 
     def read_all(self) -> list[dict]:
         if not self._path.exists():

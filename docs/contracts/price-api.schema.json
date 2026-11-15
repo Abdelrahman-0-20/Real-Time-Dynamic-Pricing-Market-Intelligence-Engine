@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pricing.local/schemas/price-api.schema.json",
+  "title": "HTTP Pricing API",
+  "description": "The non-decision-record shapes of POST /v1/price API. Served decision bodies validate against decision-record.schema.json directly (the record IS the response). Every error uses ErrorEnvelope — what went wrong plus the fix, same discipline as pricingctl.",
+  "$defs": {
+    "PriceRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sku"],
+      "properties": {
+        "sku": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$", "description": "e.g. SKU-4471" },
+        "market": { "type": "string", "pattern": "^[A-Z]{2}$", "default": "EG", "description": "Guardrail policy pack (ADR-008). Unknown packs degrade (stricter fallback) rather than error." }
+      }
+    },
+    "BatchPriceRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["items"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/PriceRequest" }
+        }
+      }
+    },
+    "HealthResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "model_version", "dictionary_version", "pack"],
+      "properties": {
+        "status": { "enum": ["ok", "degraded"] },
+        "model_version": { "type": "string" },
+        "dictionary_version": { "type": "string" },
+        "pack": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["market", "version", "status"],
+          "properties": {
+            "market": { "type": "string" },
+            "version": { "type": "string" },
+            "status": { "type": "string", "description": "placeholder | approved | derived | safe-default" }
+          }
+        },
+        "auth": { "enum": ["api_key", "dev-open"], "description": "dev-open only when PRICING_API_DEV=1 — never in real deployments." }
+      }
+    },
+    "ErrorEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["error", "fix"],
+      "properties": {
+        "error": { "type": "string", "description": "what went wrong, human-readable" },
+        "fix": { "type": "string", "description": "the exact next step" }
+      }
+    }
+  }
+}

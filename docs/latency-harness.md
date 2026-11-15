@@ -39,3 +39,22 @@ python benchmarks/latency.py                 # local gate, exit 0/1
 python benchmarks/latency.py --json          # machine-readable (pipe-safe)
 python benchmarks/latency.py --stage-cache    # isolate one sub-span
 ```
+
+## HTTP gate (added with the Pricing API, step 7)
+
+```bash
+python benchmarks/http_latency.py            # e2e p99 < 50 ms, exit 0/1
+python benchmarks/http_latency.py --json     # includes serve p50/p99 (X-Serve-Ms)
+```
+
+Same philosophy, two distributions:
+
+| Metric | What it is | Gate |
+|---|---|---|
+| e2e p99 | client wall time: HTTP + auth + JSON + real uvicorn | **≤ 50 ms** locally when the box is quiet; **≤ 150 ms** on CI/shared runners |
+| serve p99 | `X-Serve-Ms`: seed → model → guardrails → decision log | reported every run; a rising serve p99 with flat e2e means the handler regressed (and vice versa) |
+
+Environment tiers are calibration, not goalpost-moving: measured on this shared
+desktop the same protocol ran 34/42/47 ms after fixes and 49/57/322 ms before —
+regressions of that class fail any tier. The customer-facing 50 ms SLA is
+validated on the deployment box (phase-2 VPS), never inferred from a laptop.

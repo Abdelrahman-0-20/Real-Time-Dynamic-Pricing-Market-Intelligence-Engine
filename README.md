@@ -113,12 +113,13 @@ Every non-obvious choice is an ADR with trade-offs and rejected alternatives —
 
 **Real today:** full loop on a local stack — telemetry + crawl → features → model → guardrailed, audited price; real Redis + Kafka containers; operator CLI; eval gate in CI.
 
+**Shipped since:** **HTTP Pricing API** ([docs/API.md](docs/API.md) — fail-closed auth, `{error, fix}` envelopes, p99 gate 34/42/47 ms over 3 runs) · **LLM extractor infrastructure** (ADR-006 fallback chain + bounded-generation adapter; live eval awaiting a quiet box, retry checklist in [ADR-011](docs/adr/ADR-011-local-ollama-backend.md) — the lexicon ships meanwhile, per the gate).
+
 **Not yet (in order):**
-1. **LLM extractor** — ADR-006 pipeline built and gated; awaiting backend choice (local Ollama vs API)
-2. **HTTP pricing API** — so other systems can *call* this (today it's a library + CLI)
-3. **Operator console** (Tauri) — IPC contract first
-4. **Production traffic** — shadow/canary → 5% holdout → drift monitors need real requests
-5. Guardrail packs carry `status: placeholder` — **legal review is a blocking gate** before `approved`
+1. **LLM live eval** — run when the box is quiet; must beat the lexicon bar (f1 0.769) to become primary
+2. **Operator console** (Tauri) — IPC contract first, calls the HTTP API
+3. **Production traffic** — shadow/canary → 5% holdout → drift monitors need real requests
+4. Guardrail packs carry `status: placeholder` — **legal review is a blocking gate** before `approved`
 
 ## License
 

@@ -13,7 +13,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install test dependencies
-        run: pip install jsonschema pytest import-linter redis fakeredis confluent-kafka
+        run: pip install jsonschema pytest import-linter redis fakeredis confluent-kafka fastapi "uvicorn[standard]" httpx wsproto
       - name: Contract gate + dependency rule (pytest)
         run: python -m pytest -q
       - name: Import-linter (ADR-002 hexagonal boundary)
@@ -24,3 +24,5 @@ jobs:
         run: python -m pricing.training.train --n 8000
       - name: Latency gate (CI threshold, see docs/latency-harness.md)
         run: python benchmarks/latency.py --n 2000 --warmup 200 --max-p99 150 --json
+      - name: HTTP latency gate (CI threshold150, see docs/API.md)
+        run: python benchmarks/http_latency.py --n 1500 --warmup 200 --max-p99 150

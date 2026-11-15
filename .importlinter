@@ -51,7 +51,8 @@ forbidden_modules =
 ; Same rule for the application layer, plus: never reach for a concrete adapter.
 ; NOTE: the cold path (pricing.intel) is enforced by
 ; tests/test_dependency_direction.py — its run.py is a composition root, the
-; same exempted role as pricing/compose.py.
+; same exempted role as pricing/compose.py. pricing/ctl and pricing/api are
+; composition + delivery roots (they MUST wire adapters) — same exemption.
 [importlinter:contract:app-has-no-adapters]
 name = app has no adapters
 type = forbidden
