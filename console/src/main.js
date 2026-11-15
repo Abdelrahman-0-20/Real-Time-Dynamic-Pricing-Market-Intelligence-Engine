@@ -200,8 +200,22 @@ for (const [id, key] of [["base", "pc.base"], ["key", "pc.key"]]) {
   const input = $(`#${id}`);
   input.value = state[id];
   input.addEventListener("change", () => {
-    state[id] = input.value.trim();
-    localStorage.setItem(key, state[id]);
+    const value = input.value.trim();
+    // Papercut guard: the API field is a URL, the Key field is the secret.
+    // Putting the key here produced a confusing Tauri scope error — say it plainly.
+    if (id === "base" && value && !/^https?:\/\/.+/.test(value)) {
+      showError(
+        new Error(
+          `the API field expects a URL, not a key (got '${value.slice(0, 40)}')\n` +
+            "Fix: set it to http://127.0.0.1:8000 and paste the key into the Key field"
+        )
+      );
+      input.value = state.base; // restore the last good URL
+      return;
+    }
+    state[id] = value;
+    localStorage.setItem(key, value);
+    if (id === "base" && value) loadStatus().catch((error) => showError(error));
   });
 }
 

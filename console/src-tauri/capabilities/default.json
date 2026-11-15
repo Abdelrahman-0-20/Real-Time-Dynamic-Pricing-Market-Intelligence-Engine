@@ -1,14 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window: core runtime + HTTP scoped to the LOCAL Pricing API only. Deny by default — no shell, no fs, no opener, no remote hosts.",
+  "description": "Main window: core runtime + HTTP scoped to the LOCAL Pricing API only. Deny by default is implicit — the allow list is exhaustive (any URL not listed is refused); no explicit deny entry: in Tauri's ACL, deny is checked FIRST and a broad deny silently vetoes the allow (the first-launch bug we hit).",
   "windows": ["main"],
   "permissions": [
     "core:default",
     {
       "identifier": "http:default",
-      "allow": [{ "url": "http://127.0.0.1:8000" }],
-      "deny": [{ "url": "http://*:*" }]
+      "allow": [{ "url": "http://127.0.0.1:8000" }]
     }
   ]
 }
