@@ -19,3 +19,8 @@ class PriceRequest(BaseModel):
 
 class BatchPriceRequest(BaseModel):
     items: list[PriceRequest] = Field(min_length=1, max_length=100)
+
+
+class ReviewRequest(BaseModel):
+    choice: str = Field(pattern=r"^(approve|reject|escalate)$")
+    note: str | None = Field(default=None, max_length=500)

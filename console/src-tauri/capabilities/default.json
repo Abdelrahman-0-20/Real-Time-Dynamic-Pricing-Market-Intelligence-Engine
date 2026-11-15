@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Main window: core runtime + HTTP scoped to the LOCAL Pricing API only. Deny by default — no shell, no fs, no opener, no remote hosts.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    {
+      "identifier": "http:default",
+      "allow": [{ "url": "http://127.0.0.1:8000" }],
+      "deny": [{ "url": "http://*:*" }]
+    }
+  ]
+}

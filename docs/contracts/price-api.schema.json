@@ -47,6 +47,51 @@
         "auth": { "enum": ["api_key", "dev-open"], "description": "dev-open only when PRICING_API_DEV=1 — never in real deployments." }
       }
     },
+    "ExplainResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "contributions"],
+      "properties": {
+        "decision": {
+          "type": "object",
+          "description": "The DecisionRecord — validated against decision-record.schema.json (documented pattern: decision bodies always use that contract)."
+        },
+        "contributions": {
+          "type": "array",
+          "description": "Per-feature model contributions (SHAP), sorted by absolute impact — the 'why' behind the price.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["feature", "contribution"],
+            "properties": {
+              "feature": { "type": "string" },
+              "contribution": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "ReviewRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["choice"],
+      "properties": {
+        "choice": { "enum": ["approve", "reject", "escalate"] },
+        "note": { "type": ["string", "null"], "maxLength": 500, "description": "Free-text rationale stored with the review." }
+      }
+    },
+    "ReviewResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision_id", "trace_id", "choice", "at"],
+      "properties": {
+        "decision_id": { "type": "string", "format": "uuid" },
+        "trace_id": { "type": "string" },
+        "choice": { "enum": ["approve", "reject", "escalate"] },
+        "note": { "type": ["string", "null"] },
+        "at": { "type": "string", "format": "date-time" }
+      }
+    },
     "ErrorEnvelope": {
       "type": "object",
       "additionalProperties": false,

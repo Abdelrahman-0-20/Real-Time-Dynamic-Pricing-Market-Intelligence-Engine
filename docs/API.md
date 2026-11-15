@@ -25,10 +25,16 @@ so an unauthenticated deployment is never silent.
 |---|---|---|
 | `GET /health` | none | `{status, model_version, dictionary_version, pack, auth}` (contract: `price-api.schema.json`) |
 | `POST /v1/price` | `X-API-Key` | `{"sku": "SKU-4471", "market": "EG"}` → **the DecisionRecord** (contract: `decision-record.schema.json`) + `X-Serve-Ms` header |
+| `POST /v1/price/explain` | `X-API-Key` | same body → `{decision, contributions[]}` — SHAP contributions, the HITL "why" (contract: `ExplainResponse`) |
 | `POST /v1/prices` | `X-API-Key` | `{"items": [...≤100...]}` → array of DecisionRecords |
+| `GET /v1/decisions?limit=N` | `X-API-Key` | most recent N (1–100) DecisionRecords |
 | `GET /v1/decisions/{trace_id}` | `X-API-Key` | that DecisionRecord (404 + fix envelope if unknown) |
+| `POST /v1/decisions/{trace_id}/review` | `X-API-Key` | `{"choice": "approve\|reject\|escalate", "note"?}` → review entry persisted to `var/reviews.jsonl` (contract: `ReviewRequest/Response`) |
+| `GET /v1/signals` | `X-API-Key` | last crawl's signals + quarantines + stats (404 + crawl fix if never run) |
 
 Interactive docs: `http://localhost:8000/docs` (FastAPI/OpenAPI).
+
+**Consumers:** `pricingctl` (CLI), CI gates, and the **Tauri operator console** ([console/](../console/)) — a thin shell whose only capability is HTTP to `127.0.0.1:8000`.
 
 ### Examples
 

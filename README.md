@@ -113,7 +113,7 @@ Every non-obvious choice is an ADR with trade-offs and rejected alternatives —
 
 **Real today:** full loop on a local stack — telemetry + crawl → features → model → guardrailed, audited price; real Redis + Kafka containers; operator CLI; eval gate in CI.
 
-**Shipped since:** **HTTP Pricing API** ([docs/API.md](docs/API.md) — fail-closed auth, `{error, fix}` envelopes, p99 gate 34/42/47 ms over 3 runs) · **LLM extractor infrastructure** (ADR-006 fallback chain + bounded-generation adapter; live eval awaiting a quiet box, retry checklist in [ADR-011](docs/adr/ADR-011-local-ollama-backend.md) — the lexicon ships meanwhile, per the gate).
+**Shipped since:** **HTTP Pricing API** ([docs/API.md](docs/API.md) — fail-closed auth, `{error, fix}` envelopes, p99 gate 34/42/47 ms over 3 runs) · **LLM extractor infrastructure** (ADR-006 fallback chain + bounded-generation adapter; live eval awaiting a quiet box, retry checklist in [ADR-011](docs/adr/ADR-011-local-ollama-backend.md) — the lexicon ships meanwhile, per the gate) · **Tauri operator console** ([console/](console/) — thin shell: capability-scoped HTTP to localhost only, no shell/fs/opener surface, status · price+SHAP explain · approve/reject/escalate · signals · decisions).
 
 **Not yet (in order):**
 1. **LLM live eval** — run when the box is quiet; must beat the lexicon bar (f1 0.769) to become primary

@@ -172,3 +172,108 @@ def test_request_shapes_match_the_published_contract() -> None:
     jsonschema.validate({"sku": "SKU-4471", "market": "EG"}, valid)
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate({"sku": "bad sku!", "market": "eg"}, valid)
+
+
+# ------------------------------------------------------------------ reviews
+
+def test_review_roundtrip_is_contract_valid_and_persisted(make_client, tmp_path) -> None:
+    client = make_client()
+    trace_id = client.post("/v1/price", json={"sku": "SKU-4471"}).json()["trace_id"]
+
+    response = client.post(
+        f"/v1/decisions/{trace_id}/review",
+        json={"choice": "approve", "note": "clamps look right"},
+    )
+    assert response.status_code == 200
+    entry = response.json()
+    jsonschema.validate(entry, _ref("price-api.schema.json", "ReviewResponse"))
+    assert entry["trace_id"] == trace_id
+    assert entry["choice"] == "approve"
+
+    # Persisted across requests (the console's button must not vanish).
+    reviews = (tmp_path / "var" / "reviews.jsonl").read_text()
+    assert entry["decision_id"] in reviews
+
+
+def test_review_on_unknown_trace_is_404_with_a_fix(make_client) -> None:
+    client = make_client()
+    response = client.post(
+        "/v1/decisions/no-such/review", json={"choice": "reject"}
+    )
+    assert response.status_code == 404
+    assert "review" in response.json()["error"]
+    assert "Fix" not in response.json()["error"] and response.json()["fix"]
+
+
+def test_review_choice_is_a_closed_enum(make_client) -> None:
+    client = make_client()
+    trace_id = client.post("/v1/price", json={"sku": "SKU-2"}).json()["trace_id"]
+    bad = client.post(
+        f"/v1/decisions/{trace_id}/review", json={"choice": "rubber-stamp"}
+    )
+    assert bad.status_code == 422
+    assert "choice" in bad.json()["error"]
+
+
+def test_review_requires_auth(make_client) -> None:
+    client = make_client()
+    client.headers.clear()
+    response = client.post(
+        "/v1/decisions/x/review", json={"choice": "approve"}
+    )
+    assert response.status_code == 401
+
+
+# ------------------------------------------------------- console data surface
+
+def test_explain_returns_decision_plus_contributions(make_client) -> None:
+    client = make_client()
+    response = client.post("/v1/price/explain", json={"sku": "SKU-4471"})
+    assert response.status_code == 200
+    body = response.json()
+    jsonschema.validate(body, _ref("price-api.schema.json", "ExplainResponse"))
+    jsonschema.validate(body["decision"], load_schema("decision-record.schema.json"))
+    assert body["contributions"], "HITL view needs the why, not just the price"
+    features = {c["feature"] for c in body["contributions"]}
+    assert "base_cost" in features
+    # Sorted by absolute impact: the top entry dominates the rest.
+    magnitudes = [abs(c["contribution"]) for c in body["contributions"]]
+    assert magnitudes == sorted(magnitudes, reverse=True)
+
+
+def test_decisions_list_is_bounded_and_valid(make_client) -> None:
+    client = make_client()
+    for i in range(3):
+        client.post("/v1/price", json={"sku": f"SKU-{i}"})
+    response = client.get("/v1/decisions")
+    assert response.status_code == 200
+    records = response.json()
+    assert len(records) == 3
+    for record in records:
+        jsonschema.validate(record, load_schema("decision-record.schema.json"))
+
+    assert client.get("/v1/decisions?limit=0").status_code == 422
+    assert client.get("/v1/decisions?limit=101").status_code == 422
+    assert len(client.get("/v1/decisions?limit=2").json()) == 2
+
+
+def test_signals_404s_with_crawl_fix_then_serves_state(make_client, tmp_path) -> None:
+    client = make_client()
+    first = client.get("/v1/signals")
+    assert first.status_code == 404
+    assert "pricing.intel.run" in first.json()["fix"]
+
+    # Simulate a completed crawl's state file (what the CLI writes).
+    state = {
+        "ran_at": "2026-11-15T16:00:00+00:00",
+        "signals_written": 1, "quarantined": 1, "advisories": 0,
+        "signals": [{"signal_type": "competitor_stockout", "confidence": 0.92}],
+        "quarantine_records": [{"doc_id": "abc", "reason": "injection_suspect", "detail": "x"}],
+    }
+    (tmp_path / "var" / "intel_state.json").write_text(json.dumps(state))
+
+    ok = client.get("/v1/signals")
+    assert ok.status_code == 200
+    body = ok.json()
+    assert body["stats"]["signals_written"] == 1
+    assert body["quarantines"][0]["reason"] == "injection_suspect"

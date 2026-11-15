@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pricing Console</title>
+    <link rel="stylesheet" href="styles.css" />
+    <!-- bundle.js is produced by `npm run build:js` (esbuild), wired into
+         Tauri via beforeDevCommand/beforeBuildCommand — the template ships
+         no bundler, and the http plugin needs its npm JS package. -->
+    <script src="/bundle.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <h1>Pricing Console</h1>
+      <div class="conn">
+        <label>API <input id="base" placeholder="http://127.0.0.1:8000" /></label>
+        <label>Key <input id="key" type="password" placeholder="PRICING_API_KEY" /></label>
+        <span id="conn-state" class="pill">–</span>
+      </div>
+    </header>
+
+    <nav>
+      <button class="tab active" data-tab="status">Status</button>
+      <button class="tab" data-tab="price">Price</button>
+      <button class="tab" data-tab="signals">Signals</button>
+      <button class="tab" data-tab="decisions">Decisions</button>
+    </nav>
+
+    <main>
+      <section id="tab-status" class="panel active">
+        <button data-action="load-status">Refresh health</button>
+        <pre id="status-out">–</pre>
+      </section>
+
+      <section id="tab-price" class="panel">
+        <div class="row">
+          <label>SKU <input id="sku" value="SKU-4471" /></label>
+          <label>Market <input id="market" value="EG" size="3" /></label>
+          <button data-action="price-explain">Price &amp; explain</button>
+        </div>
+        <div id="price-out"></div>
+        <div class="row review-row" id="review-row" hidden>
+          <label>Note <input id="review-note" placeholder="optional rationale" /></label>
+          <button data-action="review" data-choice="approve" class="ok">Approve</button>
+          <button data-action="review" data-choice="reject" class="bad">Reject</button>
+          <button data-action="review" data-choice="escalate">Escalate</button>
+        </div>
+      </section>
+
+      <section id="tab-signals" class="panel">
+        <button data-action="load-signals">Load last crawl</button>
+        <div id="signals-out"></div>
+      </section>
+
+      <section id="tab-decisions" class="panel">
+        <button data-action="load-decisions">Load recent20</button>
+        <div id="decisions-out"></div>
+      </section>
+    </main>
+
+    <footer>
+      <span id="error" class="error"></span>
+    </footer>
+  </body>
+</html>

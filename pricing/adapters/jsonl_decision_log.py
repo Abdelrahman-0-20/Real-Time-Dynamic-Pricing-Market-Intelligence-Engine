@@ -54,3 +54,7 @@ class JsonlDecisionLog:
             if record.get("trace_id") == trace_id:
                 return record
         return None
+
+    def tail(self, n: int) -> list[dict]:
+        """Most recent n records, oldest first (console/CLI listings)."""
+        return self.read_all()[-max(0, n):]

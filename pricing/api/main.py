@@ -11,14 +11,16 @@ for served decision bodies). Errors: {"error": ..., "fix": ...}.
 """
 from __future__ import annotations
 
+import json
 import os
 import time
+from datetime import datetime, timezone
 
-from fastapi import Depends, FastAPI, Header, Request, Response
+from fastapi import Depends, FastAPI, Header, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from pricing.api.models import BatchPriceRequest, PriceRequest
+from pricing.api.models import BatchPriceRequest, PriceRequest, ReviewRequest
 from pricing.api.wiring import PricingStack
 
 VERSION = "0.1.0"
@@ -144,5 +146,81 @@ def create_app(
                 "one; var/decisions.jsonl may also have been cleared",
             )
         return record
+
+    @app.post("/v1/decisions/{trace_id}/review", dependencies=auth)
+    def review(trace_id: str, request: ReviewRequest, response: Response) -> dict:
+        """HITL decision: the console's approve/reject/escalate button (§6)."""
+        record = stack.log.find_trace(trace_id)
+        if record is None:
+            raise ApiError(
+                404,
+                f"no decision with trace_id '{trace_id}' to review",
+                "list recent decisions first (GET /v1/decisions/{trace_id} "
+                "returns 404 for unknown ids) — price a SKU to create one",
+            )
+        started = time.perf_counter_ns()
+        entry = {
+            "decision_id": record["decision_id"],
+            "trace_id": trace_id,
+            "choice": request.choice,
+            "note": request.note,
+            "at": datetime.now(timezone.utc).isoformat(),
+        }
+        stack.reviews.append(entry)
+        response.headers["X-Serve-Ms"] = (
+            f"{(time.perf_counter_ns() - started) / 1e6:.3f}"
+        )
+        return entry
+
+    @app.post("/v1/price/explain", dependencies=auth)
+    def explain(request: PriceRequest, response: Response) -> dict:
+        """Price + per-feature contributions: the console's 'why' view (HITL)."""
+        started = time.perf_counter_ns()
+        stack.seed_once(request.sku)
+        service, _ = stack.service_for(request.market)
+        record = service.price(request.sku)
+        explain_fn = getattr(service.model, "explain", None)
+        contributions: list[dict] = []
+        if explain_fn is not None:
+            features = {
+                key: (float("nan") if value is None else value)
+                for key, value in record["model_input"]["features"].items()
+            }
+            contributions = [
+                {"feature": name, "contribution": round(value, 4)}
+                for name, value in explain_fn(features)
+            ]
+        response.headers["X-Serve-Ms"] = (
+            f"{(time.perf_counter_ns() - started) / 1e6:.3f}"
+        )
+        return {"decision": record, "contributions": contributions}
+
+    @app.get("/v1/decisions", dependencies=auth)
+    def decisions(limit: int = Query(default=20, ge=1, le=100)) -> list[dict]:
+        """Most recent decisions, oldest first — the console's list view."""
+        return stack.log.tail(limit)
+
+    @app.get("/v1/signals", dependencies=auth)
+    def signals() -> dict:
+        """Market signals from the last crawl (cold-path state)."""
+        state_path = stack.var / "intel_state.json"
+        if not state_path.exists():
+            raise ApiError(
+                404,
+                "no crawl has run yet — no signals to show",
+                "run `python -m pricing.intel.run` (or `pricingctl crawl run`) "
+                "first; state lands in var/intel_state.json",
+            )
+        state = json.loads(state_path.read_text())
+        return {
+            "ran_at": state.get("ran_at"),
+            "signals": state.get("signals", []),
+            "quarantines": state.get("quarantine_records", []),
+            "stats": {
+                "signals_written": state.get("signals_written", 0),
+                "quarantined": state.get("quarantined", 0),
+                "advisories": state.get("advisories", 0),
+            },
+        }
 
     return app

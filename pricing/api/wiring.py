@@ -30,6 +30,7 @@ class PricingStack:
 
         self.packs = load_packs(config / "guardrails")
         self.dictionary = load_dictionary(config / "features")
+        self.var = var
         # XGBoostModel raises FileNotFoundError WITH the fix if artifacts missing
         # → uvicorn startup fails loudly instead of 500ing every request.
         self.model = XGBoostModel(
@@ -38,6 +39,7 @@ class PricingStack:
         )
         self.store = InMemoryFeatureStore()
         self.log = JsonlDecisionLog(var / "decisions.jsonl")
+        self.reviews = JsonlDecisionLog(var / "reviews.jsonl")
         self.clock = SystemClock()
         self.currency = currency
         self.default_market = market
