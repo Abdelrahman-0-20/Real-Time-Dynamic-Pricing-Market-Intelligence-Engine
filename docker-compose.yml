@@ -1,0 +1,50 @@
+# Flip-on stack (ADR-010): what becomes REAL when this file runs.
+#
+#   docker compose up -d          # redis + redpanda (Kafka-compatible)
+#   export REDIS_URL=redis://localhost:6379/0
+#   export KAFKA_BROKER=localhost:19092
+#   python -m pytest tests/ -q    # flip-on tests activate; others unchanged
+#
+# Disk footprint: ~350MB of images (checked against the 28GB free on this box).
+# Flink and Airflow are deliberately NOT here — JVM cluster and ~1GB stack,
+# deferred per ADR-010 until the windowing runner actually needs them.
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: pricing-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  redpanda:
+    image: redpandadata/redpanda:v24.2.4
+    container_name: pricing-kafka
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - 512M
+      - --reserve-memory
+      - 0M
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr
+      - internal://redpanda:9092,external://localhost:19092
+    ports:
+      - "19092:19092"
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
