@@ -4,7 +4,8 @@ Order matters and is deliberate:
   1. ToS review gate + circuit breaker BEFORE any network/fixture access
   2. injection gate on raw text BEFORE extraction (hostile content never
      reaches the extractor as anything but data)
-  3. extraction (side-effect free)
+  3. extraction — primary extractor, with the ADR-006 fallback chain:
+     LLM -> lexicon (tier-3) -> breaker + error (never a silent skip)
   4. schema gate per candidate, assembled with pipeline-owned provenance
   5. contradiction resolution against existing signals
   6. sink + feature writer (the ADR-001 join into the feature store)
@@ -45,12 +46,14 @@ class CrawlPipeline:
         clock,
         feature_store=None,          # FeatureStore port (hot-path store) or None
         breaker_clock=None,          # seconds-float clock for breakers
+        fallback_extractor: SignalExtractor | None = None,  # ADR-006 tier-3
     ) -> None:
         self._registry = registry
         self._fetcher = fetcher
         self._parser = parser
         self._documents = documents
         self._extractor = extractor
+        self._fallback_extractor = fallback_extractor
         self._sink = sink
         self._validator = validator
         self._clock = clock
@@ -74,7 +77,8 @@ class CrawlPipeline:
             if source_ids else self._registry.all()
         )
         stats: dict = {"sources": {}, "signals_written": 0,
-                       "features_written": 0, "quarantined": 0, "advisories": 0}
+                       "features_written": 0, "quarantined": 0, "advisories": 0,
+                       "extractor_fallbacks": 0}
         for source in selected:
             stats["sources"][source.id] = self._run_one(source, stats)
         return stats
@@ -108,7 +112,22 @@ class CrawlPipeline:
             return {"status": "quarantined", "reason": "injection_suspect"}
 
         self._documents.save(source, parsed, page.fetched_at)
-        candidates = self._extractor.extract(parsed, source)
+
+        # Extraction with the ADR-006 fallback chain.
+        extractor_used = self._extractor.name
+        try:
+            candidates = self._extractor.extract(parsed, source)
+        except Exception as exc:
+            if self._fallback_extractor is None:
+                breaker.record_failure()
+                return {"status": "extract_error", "error": str(exc)[:200]}
+            try:
+                candidates = self._fallback_extractor.extract(parsed, source)
+                extractor_used = self._fallback_extractor.name
+                stats["extractor_fallbacks"] += 1
+            except Exception as fallback_exc:
+                breaker.record_failure()
+                return {"status": "extract_error", "error": str(fallback_exc)[:200]}
 
         written = 0
         advisories = 0
@@ -118,8 +137,8 @@ class CrawlPipeline:
                 signal_type=candidate["signal_type"],
                 source=source,
                 doc_id=doc_id,
-                extracted_by=self._extractor.name,
-                model=self._extractor.name,
+                extracted_by=extractor_used,
+                model=extractor_used,
                 trace_id=trace_id,
                 observed_at=page.fetched_at,
                 confidence=float(candidate["confidence"]),
@@ -159,4 +178,5 @@ class CrawlPipeline:
 
         breaker.record_success()
         stats["advisories"] += advisories
-        return {"status": "ok", "signals": written, "advisories": advisories}
+        return {"status": "ok", "signals": written, "advisories": advisories,
+                "extractor": extractor_used}

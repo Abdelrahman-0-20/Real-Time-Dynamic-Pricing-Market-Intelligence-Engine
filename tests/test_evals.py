@@ -36,15 +36,22 @@ def test_corpus_covers_injection_and_quarantine() -> None:
             "competitor_price_change", "demand_surge"} <= types
 
 
-def test_baseline_is_recorded_and_versioned() -> None:
+def test_baseline_is_recorded_per_extractor_and_current() -> None:
     assert BASELINE_PATH.exists(), (
         "no evals/baseline.json — record one with "
         "`python -m pricing.evals.run --update-baseline`"
     )
-    baseline = json.loads(BASELINE_PATH.read_text())
-    for key in ("extractor", "n_cases", "precision", "recall", "f1", "created_at"):
-        assert key in baseline, f"baseline missing '{key}'"
-    assert baseline["n_cases"] == len(load_cases())
+    store = json.loads(BASELINE_PATH.read_text())
+    assert store["version"] == 2 and store["baselines"], store
+    n_cases = len(load_cases())
+    for name, entry in store["baselines"].items():
+        for key in ("extractor", "n_cases", "precision", "recall", "f1", "created_at"):
+            assert key in entry, f"baseline['{name}'] missing '{key}'"
+        assert entry["n_cases"] == n_cases, (
+            f"baseline '{name}' recorded against {entry['n_cases']} cases, "
+            f"corpus now has {n_cases} — re-record with --update-baseline"
+        )
+    assert "lexicon-v1" in store["baselines"], "the always-available tier-3 baseline must exist"
 
 
 def test_current_extractor_meets_baseline(capsys) -> None:

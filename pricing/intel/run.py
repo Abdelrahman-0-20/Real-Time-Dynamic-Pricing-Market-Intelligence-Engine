@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import sys
 from datetime import datetime, timezone
@@ -51,6 +52,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="fixture HTML directory for local runs")
     parser.add_argument("--http", action="store_true",
                         help="fetch over real HTTP instead of seed files")
+    parser.add_argument("--extractor", choices=("lexicon", "llm"),
+                        default=os.environ.get("PRICING_EXTRACTOR", "lexicon"),
+                        help="signal extractor (llm = Ollama, falls back to lexicon on failure; default lexicon)")
     parser.add_argument("--json", action="store_true",
                         help="machine-readable output only (pipe-safe)")
     args = parser.parse_args(argv)
@@ -58,12 +62,22 @@ def main(argv: list[str] | None = None) -> int:
     registry = SourceRegistry.from_config(args.config)
     sink = MemorySignalSink()
     documents = TfidfDocumentStore()
+
+    if args.extractor == "llm":
+        from pricing.intel.adapters.llm_extractor import OpenAICompatExtractor
+
+        # ADR-006 fallback chain: LLM primary, lexicon tier-3.
+        primary_extractor, fallback_extractor = OpenAICompatExtractor(), LexiconExtractor()
+    else:
+        primary_extractor, fallback_extractor = LexiconExtractor(), None
+
     pipeline = CrawlPipeline(
         registry=registry,
         fetcher=HttpFetcher() if args.http else FixtureFetcher(args.seed_dir),
         parser=HtmlTextParser(),
         documents=documents,
-        extractor=LexiconExtractor(),
+        extractor=primary_extractor,
+        fallback_extractor=fallback_extractor,
         sink=sink,
         validator=load_signal_validator(
             _REPO_ROOT / "docs" / "contracts" / "market-signal.schema.json"

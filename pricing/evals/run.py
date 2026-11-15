@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import sys
 from datetime import datetime, timezone
@@ -43,6 +44,16 @@ CASES_PATH = _REPO_ROOT / "evals" / "extraction" / "cases.json"
 BASELINE_PATH = _REPO_ROOT / "evals" / "baseline.json"
 SCHEMA_PATH = _REPO_ROOT / "docs" / "contracts" / "market-signal.schema.json"
 FIXED_TIME = datetime(2026, 11, 15, 8, 0, 0, tzinfo=timezone.utc)
+
+
+def _build_extractor(choice: str):
+    if choice == "llm":
+        from pricing.intel.adapters.llm_extractor import OpenAICompatExtractor
+
+        return OpenAICompatExtractor()
+    from pricing.intel.adapters.lexicon_extractor import LexiconExtractor
+
+    return LexiconExtractor()
 
 
 def load_cases(path: pathlib.Path = CASES_PATH) -> list[dict]:
@@ -162,7 +173,7 @@ def evaluate(cases: list[dict], parser=None, extractor=None) -> dict:
     f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) else 0.0
 
     return {
-        "extractor": LexiconExtractor.name,
+        "extractor": extractor.name,
         "n_cases": len(cases),
         "precision": round(precision, 4),
         "recall": round(recall, 4),
@@ -210,27 +221,50 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--baseline", default=str(BASELINE_PATH), help="baseline JSON")
     parser.add_argument("--update-baseline", action="store_true",
                         help="record current scores as the new baseline (gate versioning)")
+    parser.add_argument("--extractor", choices=("lexicon", "llm"),
+                        default=os.environ.get("PRICING_EXTRACTOR", "lexicon"),
+                        help="extractor to score (env PRICING_EXTRACTOR; default lexicon)")
     args = parser.parse_args(argv)
 
     try:
         cases = load_cases(pathlib.Path(args.cases))
-        report = evaluate(cases)
+        report = evaluate(cases, extractor=_build_extractor(args.extractor))
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
 
+    # Per-extractor baselines (v2): each shipping extractor has its own bar,
+    # so CI (lexicon, no LLM) and local runs (LLM) each gate against THEIR
+    # recorded score on the SAME corpus.
     baseline_path = pathlib.Path(args.baseline)
-    baseline = json.loads(baseline_path.read_text()) if baseline_path.exists() else None
+    store: dict = {"version": 2, "baselines": {}}
+    if baseline_path.exists():
+        raw = json.loads(baseline_path.read_text())
+        if "baselines" in raw:
+            store = raw
+        elif raw:  # v1 flat format -> migrate in memory
+            store["baselines"] = {
+                raw.get("extractor", "lexicon-v1"): {
+                    k: raw[k] for k in
+                    ("extractor", "n_cases", "precision", "recall", "f1", "created_at")
+                    if k in raw
+                }
+            }
+    entry = store["baselines"].get(report["extractor"])
 
     if args.update_baseline:
         baseline_path.parent.mkdir(parents=True, exist_ok=True)
-        baseline = {k: report[k] for k in
-                    ("extractor", "n_cases", "precision", "recall", "f1")}
-        baseline["created_at"] = report["evaluated_at"]
-        baseline_path.write_text(json.dumps(baseline, indent=2) + "\n")
+        entry = {k: report[k] for k in
+                 ("extractor", "n_cases", "precision", "recall", "f1")}
+        entry["created_at"] = report["evaluated_at"]
+        store["version"] = 2
+        store["baselines"][report["extractor"]] = entry
+        baseline_path.write_text(json.dumps(store, indent=2) + "\n")
 
-    passed, reasons = gate(report, baseline)
-    report["baseline"] = baseline
+    passed, reasons = gate(report, entry)
+    report["baseline"] = entry
+    report["baselines"] = {name: data.get("f1")
+                           for name, data in store["baselines"].items()}
     report["passed"] = passed
     report["reasons"] = reasons
     report["_exit"] = 0 if passed else 1
@@ -238,7 +272,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.json:
         print(json.dumps(report, indent=2))
     else:
-        base_txt = (f"baseline f1 {baseline['f1']}" if baseline else "no baseline")
+        base_txt = (f"baseline f1 {entry['f1']} ({entry.get('extractor', '?')})"
+                    if entry else "no baseline for this extractor")
         print(f"extraction eval  {report['extractor']}  {report['n_cases']} cases")
         print(f"precision {report['precision']:.3f}  recall {report['recall']:.3f}  "
               f"f1 {report['f1']:.3f}  ({base_txt})")
