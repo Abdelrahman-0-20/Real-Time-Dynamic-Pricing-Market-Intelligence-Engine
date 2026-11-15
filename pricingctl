@@ -1,0 +1,18 @@
+#!/usr/bin/env python3
+"""pricingctl entry shim — runs from the repo root without any install.
+
+    ./pricingctl status          ./pricingctl price explain --sku SKU-4471
+    ./pricingctl --help
+
+Equivalent to `python -m pricing.ctl.main`. Add to PATH:
+    export PATH="$PWD:$PATH"
+"""
+import pathlib
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+
+from pricing.ctl.main import main  # noqa: E402
+
+if __name__ == "__main__":
+    raise SystemExit(main())

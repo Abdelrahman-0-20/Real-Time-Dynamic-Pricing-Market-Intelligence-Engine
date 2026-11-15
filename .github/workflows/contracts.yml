@@ -18,6 +18,8 @@ jobs:
         run: python -m pytest -q
       - name: Import-linter (ADR-002 hexagonal boundary)
         run: lint-imports
+      - name: Extraction eval gate (>=20 cases vs recorded baseline)
+        run: python -m pricing.evals.run
       - name: Train baseline model
         run: python -m pricing.training.train --n 8000
       - name: Latency gate (CI threshold, see docs/latency-harness.md)

@@ -36,10 +36,15 @@ python benchmarks/latency.py           # p99 gate: PASS at 0.8 ms vs 50 ms budge
 - **Step 2 (contract enforcement): complete** — schemas are executable gates.
 - **Step 3 (hot-path vertical slice): complete** — synthetic market → trained XGBoost → in-memory ports → guardrails → schema-valid DecisionRecord, latency gate green (p99 0.8 ms local, code path only).
 - **Step 4 (cold path): complete** — [ADR-009](docs/adr/ADR-009-cold-path-local-adapters.md): crawl (ToS gate + circuit breaker) → parse → injection gate → lexicon extraction (the ADR-006 tier-3 fallback, production-tested) → schema/confidence gate → contradiction resolution → `MarketSignal` → decayed feature written to the **same store the hot path reads** (proven by `test_hot_path_prices_with_the_extracted_signal_feature`).
+- **Step 5a (`pricingctl` + eval harness): complete** — operator CLI ([spec](docs/pricingctl.md), 20 ms startup, stable exit codes, `price explain` as the HITL review surface with SHAP contributions) and the extraction eval gate (27 labeled cases, recorded baseline, negative-tested so it can actually fail).
 
 ```bash
-python -m pricing.intel.run            # crawl reviewed seed sources; exit 3 = quarantines happened
-python -m pricing.intel.run --json     # pipe-safe stats
+./pricingctl status                       # model · features · latency · intel · sources
+./pricingctl price explain --sku SKU-4471 # the WHY: features, clamps, contributions, trace id
+./pricingctl crawl run --dry-run          # preview sources, fetch nothing
+./pricingctl eval run                     # extraction quality gate vs evals/baseline.json
+./pricingctl bench --n 5000               # latency gate (p99 < 50 ms)
+python -m pricing.intel.run               # cold path directly (cron/Airflow entry)
 ```
 
-- **Next: step 5** — real infrastructure adapters behind the existing ports (Kafka/Flink → feature store, Redis cache, Docling, LLM extractor per ADR-006, Airflow DAG wrapping `pricing.intel.run`), plus `pricingctl` per [docs/pricingctl.md](docs/pricingctl.md).
+- **Next: step 5b (blocked on infra decision)** — real adapters behind the existing ports: Kafka/Flink → feature store, Redis cache, Docling + LLM (ADR-006), Airflow DAG. Needs Docker or a dev cluster. Then `pricingctl completion` and shadow/canary + drift monitors (needs real traffic).

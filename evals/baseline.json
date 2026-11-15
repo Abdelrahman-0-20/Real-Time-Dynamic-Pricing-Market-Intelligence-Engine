@@ -1,0 +1,8 @@
+{
+  "extractor": "lexicon-v1",
+  "n_cases": 27,
+  "precision": 1.0,
+  "recall": 1.0,
+  "f1": 1.0,
+  "created_at": "2026-11-15T07:17:48.641593+00:00"
+}

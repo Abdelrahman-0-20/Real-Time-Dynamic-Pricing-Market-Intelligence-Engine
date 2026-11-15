@@ -19,7 +19,7 @@ NAME = "lexicon-v1"
 # (signal_type, compiled pattern, confidence, magnitude group or None)
 _RULES: list[tuple[str, re.Pattern, float, str | None]] = [
     ("competitor_stockout",
-     re.compile(r"\b(?:out of stock|sold out|currently unavailable|nafid al-makhzun)\b", re.I),
+     re.compile(r"\b(?:out of stock|sold out|currently unavailable|nafid al-makhzun)\b|نفد\s+المخزون", re.I),
      0.92, None),
     ("competitor_price_change",
      re.compile(r"\b(?:prices?\s+(?:rose|fell|raised|cut|dropped|hiked)|(?:rose|fell|raised|cut|dropped|hiked)\s+(?:the\s+)?prices?)\s*(?:by\s*)?(\d+(?:\.\d+)?)?\s*(%|percent|dollars)?", re.I),

@@ -58,6 +58,11 @@ class PriceService:
         return self._model.model_version
 
     @property
+    def model(self) -> ModelServer:
+        """The injected scorer — for tooling (explain), not for the core."""
+        return self._model
+
+    @property
     def clock(self) -> Clock:
         return self._clock
 

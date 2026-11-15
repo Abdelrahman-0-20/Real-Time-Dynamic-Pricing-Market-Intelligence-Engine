@@ -1,5 +1,7 @@
 # `pricingctl` — operator CLI specification
 
+**Status:** implemented — run `./pricingctl` from the repo root (or `python -m pricing.ctl.main`). Implemented: `status`, `bench`, `price get|explain|simulate`, `model list`, `trace`, `crawl run|status`, `signals list [--quarantined]`, `eval run`, `config list`. Not yet: `completion`, `model promote|rollback` (needs a remote registry).
+
 **Role:** Developer Tooling Engineer surface for the pricing engine. This is the HITL review interface, the debugging tool, and the CI script target — one tool, three audiences.
 
 ## Design principles (the contract)
