@@ -15,7 +15,12 @@
     "subject": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["sku"],
+      "anyOf": [
+        { "required": ["sku"] },
+        { "required": ["competitor"] },
+        { "required": ["category"] }
+      ],
+      "description": "SKU-level when identifiable; category-level for market-wide news (which has no single SKU).",
       "properties": {
         "sku": { "type": "string" },
         "competitor": { "type": "string" },

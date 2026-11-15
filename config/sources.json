@@ -1,0 +1,45 @@
+{
+  "note": "Broad crawl scope (step-1 decision). Every source is reviewed individually: tos_reviewed=false sources are refused by the pipeline, not silently skipped.",
+  "sources": [
+    {
+      "id": "comp-alpha-pricing",
+      "url": "https://comp-alpha.example/pricing",
+      "type": "competitor_pricing_page",
+      "category": "electronics",
+      "trust": 0.9,
+      "tos_reviewed": true,
+      "enabled": true,
+      "seed_file": "comp_alpha_pricing.html"
+    },
+    {
+      "id": "comp-beta-pricing",
+      "url": "https://comp-beta.example/shop",
+      "type": "competitor_pricing_page",
+      "category": "electronics",
+      "trust": 0.8,
+      "tos_reviewed": true,
+      "enabled": true,
+      "seed_file": "comp_beta_pricing.html"
+    },
+    {
+      "id": "market-news-daily",
+      "url": "https://news.example/market-beat",
+      "type": "market_news_article",
+      "category": "electronics",
+      "trust": 0.7,
+      "tos_reviewed": true,
+      "enabled": true,
+      "seed_file": "market_news.html"
+    },
+    {
+      "id": "shady-deals-aggregator",
+      "url": "https://shady.example/deals",
+      "type": "competitor_pricing_page",
+      "category": "electronics",
+      "trust": 0.4,
+      "tos_reviewed": false,
+      "enabled": true,
+      "seed_file": null
+    }
+  ]
+}

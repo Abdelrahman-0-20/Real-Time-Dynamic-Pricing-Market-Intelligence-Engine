@@ -34,5 +34,12 @@ python benchmarks/latency.py           # p99 gate: PASS at 0.8 ms vs 50 ms budge
 
 - **Step 1 (business decisions): complete** — see [ARCHITECTURE §10](docs/ARCHITECTURE.md).
 - **Step 2 (contract enforcement): complete** — schemas are executable gates.
-- **Step 3 (hot-path vertical slice): complete** — synthetic market → trained XGBoost → in-memory ports → guardrails → schema-valid DecisionRecord, with the latency gate green (p99 0.8 ms local, code path only).
-- **Next: step 4** — cold path (Airflow + Docling crawl → Vector DB → ADR-006 extraction pipeline → `MarketSignal` → feature writer), then real Kafka/Flink/Redis adapters behind the existing ports.
+- **Step 3 (hot-path vertical slice): complete** — synthetic market → trained XGBoost → in-memory ports → guardrails → schema-valid DecisionRecord, latency gate green (p99 0.8 ms local, code path only).
+- **Step 4 (cold path): complete** — [ADR-009](docs/adr/ADR-009-cold-path-local-adapters.md): crawl (ToS gate + circuit breaker) → parse → injection gate → lexicon extraction (the ADR-006 tier-3 fallback, production-tested) → schema/confidence gate → contradiction resolution → `MarketSignal` → decayed feature written to the **same store the hot path reads** (proven by `test_hot_path_prices_with_the_extracted_signal_feature`).
+
+```bash
+python -m pricing.intel.run            # crawl reviewed seed sources; exit 3 = quarantines happened
+python -m pricing.intel.run --json     # pipe-safe stats
+```
+
+- **Next: step 5** — real infrastructure adapters behind the existing ports (Kafka/Flink → feature store, Redis cache, Docling, LLM extractor per ADR-006, Airflow DAG wrapping `pricing.intel.run`), plus `pricingctl` per [docs/pricingctl.md](docs/pricingctl.md).

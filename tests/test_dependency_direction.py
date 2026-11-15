@@ -76,6 +76,29 @@ def test_app_imports_neither_adapters_nor_vendor() -> None:
     _scan(APP, APP_FORBIDDEN, "pricing.app")
 
 
+def test_intel_pipeline_is_pure_of_its_adapters() -> None:
+    """Cold path mirrors ADR-002: pipeline/gates may not import adapters.
+
+    Exemptions: pricing/intel/adapters/ (the adapter side) and
+    pricing/intel/run.py (composition root, same role as pricing/compose.py).
+    """
+    intel = ROOT / "pricing" / "intel"
+    assert intel.is_dir(), "pricing/intel is missing — cold path must exist"
+    files = [
+        f for f in sorted(intel.rglob("*.py"))
+        if "adapters" not in f.parts and f.name != "run.py"
+    ]
+    assert files, "no cold-path pipeline files found to scan"
+    forbidden = VENDOR | {"pricing.intel.adapters", "pricing.adapters"}
+    violations = [v for f in files for v in _violations(f, forbidden)]
+    assert not violations, (
+        "ADR-002 dependency violation(s) in pricing.intel:\n  "
+        + "\n  ".join(violations)
+        + "\n  Fix: move the I/O behind a port in pricing.intel.adapters; "
+          "the pipeline keeps only orchestration and gates."
+    )
+
+
 def test_adapters_do_not_reimplement_domain_rules() -> None:
     """Adapters may import the core, but must not smuggle guardrail logic back."""
     adapters = ROOT / "pricing" / "adapters"
