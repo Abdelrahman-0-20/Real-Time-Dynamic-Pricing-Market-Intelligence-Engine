@@ -1,0 +1,21 @@
+# Core engine + gates
+jsonschema
+xgboost
+scikit-learn
+numpy
+# Real infrastructure adapters (ADR-010)
+redis
+fakeredis
+confluent-kafka
+import-linter
+# HTTP Pricing API
+fastapi
+uvicorn
+wsproto
+httpx
+# Step 2: real-data training + EDA
+pandas
+matplotlib
+openpyxl
+# Tests
+pytest

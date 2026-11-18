@@ -6,3 +6,6 @@ __pycache__/
 artifacts/
 var/
 mimo-escalator-state.json
+
+# UCI dataset cache (23MB — regenerate with: python3 -m pricing.training.uci)
+data/raw/

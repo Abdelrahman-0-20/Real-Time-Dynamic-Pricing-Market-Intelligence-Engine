@@ -1,0 +1,18 @@
+{
+  "dataset": "UCI Online Retail (id352)",
+  "rows_daily": 366,
+  "split": "temporal 80/20 (292 train / 74 test days)",
+  "mae_model": 8390.96,
+  "mae_naive_persistence": 16360.93,
+  "skill_vs_naive": 0.4871,
+  "beats_naive": true,
+  "feature_importance": {
+    "units_lag1": 0.0569,
+    "units_lag7": 0.0509,
+    "units_roll7": 0.0572,
+    "avg_price": 0.0969,
+    "price_lag1": 0.1023,
+    "target_dow": 0.5142,
+    "target_month": 0.1216
+  }
+}
