@@ -141,11 +141,17 @@ def api_get(base: str, key: str, path: str, timeout: float = 5.0):
         return json.loads(response.read().decode("utf-8"))
 
 
-def fetch(base: str, key: str, path: str):
-    """api_get with UI-grade error handling: friendly message, never a crash."""
+def fetch(base: str, key: str, path: str, quiet: bool = False):
+    """api_get with UI-grade error handling: friendly message, never a crash.
+
+    quiet=True returns None silently — used for the health probe so a missing
+    API degrades to ONE warning banner (cloud mode) instead of stacked errors.
+    """
     try:
         return api_get(base, key, path)
     except urllib.error.HTTPError as exc:
+        if quiet:
+            return None
         if exc.code == 401:
             st.error("401 — missing or invalid API key.\n\nFix: paste the key "
                      "into the sidebar (this session only; never written to disk).")
@@ -154,8 +160,10 @@ def fetch(base: str, key: str, path: str):
                      "running (`uvicorn pricing.api.main:create_app --factory "
                      "--ws wsproto --port 8000`).")
         return None
-    except Exception as exc:  # noqa: BLE001 — UI must degrade, not traceback
-        st.error(f"Cannot reach the API at `{base}` ({type(exc).__name__}).\n\n"
+    except Exception:  # noqa: BLE001 — UI must degrade, not traceback
+        if quiet:
+            return None
+        st.error(f"Cannot reach the API at `{base}`.\n\n"
                  "Fix: start it with PRICING_API_KEY set — see docs/API.md.")
         return None
 
@@ -178,18 +186,24 @@ def render() -> None:
         st.caption(f"data: {REPO.name}/ · key in session state: "
                    f"{'yes' if key else 'no'}")
 
-    health = fetch(base, key, "/health")
-    if health is None:
-        st.stop()
+    health = fetch(base, key, "/health", quiet=True)
+    api_alive = health is not None
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("status", health["status"])
-    col2.metric("model", health["model_version"])
-    col3.metric("features", health["dictionary_version"])
-    col4.metric("pack", f"{health['pack']['market']}/{health['pack']['version']}")
+    if api_alive:
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("status", health["status"])
+        col2.metric("model", health["model_version"])
+        col3.metric("features", health["dictionary_version"])
+        col4.metric("pack", f"{health['pack']['market']}/{health['pack']['version']}")
+    else:
+        st.warning(
+            "**Live API not reachable** — showing committed reports only "
+            "(figures, demand model, evals). Local full mode: start the API "
+            "per docs/API.md, then reload."
+        )
 
-    decisions = fetch(base, key, "/v1/decisions?limit=100") or []
-    signals_state = fetch(base, key, "/v1/signals")
+    decisions = fetch(base, key, "/v1/decisions?limit=100") if api_alive else []
+    signals_state = fetch(base, key, "/v1/signals") if api_alive else None
     signals = (signals_state or {}).get("signals", [])
     quarantines = (signals_state or {}).get("quarantines", [])
 
@@ -201,10 +215,7 @@ def render() -> None:
 
     with t1:  # ------------------------------------------------------------ Market
         st.subheader("Market Overview")
-        if not decisions:
-            st.info("No decisions yet — fix: price a SKU in the console or via "
-                    "`POST /v1/price`.")
-        else:
+        if decisions:
             stats = margin_stats(decisions)
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("decisions", stats["decisions"])
@@ -217,13 +228,18 @@ def render() -> None:
             st.caption("projected daily = unit margin × observed velocity — "
                        "**not a forecast** (forecast: roadmap step 4).")
             st.line_chart(decisions_by_day(decisions).set_index("day"))
-            st.image(str(REPO / "reports" / "figs" / "daily_revenue.png"),
-                     caption="UCI real data: daily revenue (EDA, step 2)",
-                     use_container_width=True)
+        elif api_alive:
+            st.info("No decisions yet — fix: price a SKU in the console or via "
+                    "`POST /v1/price`.")
+        st.image(str(REPO / "reports" / "figs" / "daily_revenue.png"),
+                 caption="UCI real data: daily revenue (EDA, step 2)",
+                 use_container_width=True)
 
     with t2:  # ------------------------------------------------------- Competitor
         st.subheader("Competitor Intelligence")
-        if signals_state is None:
+        if not api_alive:
+            st.info("Live signals need the local API — see docs/API.md.")
+        elif signals_state is None:
             st.info("No crawl state — fix: `python3 -m pricing.intel.run` "
                     "then refresh.")
         elif not signals:
@@ -239,7 +255,9 @@ def render() -> None:
 
     with t3:  # -------------------------------------------------- Recommendations
         st.subheader("Pricing Recommendations")
-        if not decisions:
+        if not api_alive:
+            st.info("Live recommendations need the local API — see docs/API.md.")
+        elif not decisions:
             st.info("Nothing priced yet — fix: price a SKU first.")
         else:
             st.caption("Newest first · impact = expected margin at the served price")
