@@ -1,5 +1,7 @@
 # Real-Time Dynamic Pricing & Market Intelligence Engine
 
+**Live app:** https://real-time-dynamic-pricing-market-intelligence-engine-4wxowrjve.streamlit.app/
+
 **Turns live sales telemetry + scraped market news into audited price decisions in < 50 ms** — with hard guardrails, an LLM extraction layer, and test gates that make every claim on this page verifiable.
 
 ```
