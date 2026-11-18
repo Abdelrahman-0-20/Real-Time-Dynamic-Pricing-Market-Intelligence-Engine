@@ -277,3 +277,14 @@ def test_signals_404s_with_crawl_fix_then_serves_state(make_client, tmp_path) ->
     body = ok.json()
     assert body["stats"]["signals_written"] == 1
     assert body["quarantines"][0]["reason"] == "injection_suspect"
+
+
+def test_api_price_carries_expected_impact(make_client) -> None:
+    response = make_client().post("/v1/price", json={"sku": "SKU-4471"})
+    record = response.json()
+    jsonschema.validate(record, load_schema("decision-record.schema.json"))
+    impact = record["impact"]
+    assert impact["basis"] == "current_velocity"
+    assert impact["unit_margin"] == pytest.approx(
+        record["served_price"] - record["model_input"]["features"]["base_cost"], abs=1e-3
+    )

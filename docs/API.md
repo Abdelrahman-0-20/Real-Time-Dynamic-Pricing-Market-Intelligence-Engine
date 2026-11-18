@@ -24,7 +24,7 @@ so an unauthenticated deployment is never silent.
 | Method & path | Auth | Body / returns |
 |---|---|---|
 | `GET /health` | none | `{status, model_version, dictionary_version, pack, auth}` (contract: `price-api.schema.json`) |
-| `POST /v1/price` | `X-API-Key` | `{"sku": "SKU-4471", "market": "EG"}` → **the DecisionRecord** (contract: `decision-record.schema.json`) + `X-Serve-Ms` header |
+| `POST /v1/price` | `X-API-Key` | `{"sku": "SKU-4471", "market": "EG"}` → **the DecisionRecord** (contract: `decision-record.schema.json`) + `X-Serve-Ms` header. Includes **`impact`** — expected unit margin, margin %, and projected daily margin *at current observed velocity* (`basis: current_velocity`, not a forecast; optional, so pre-impact records stay valid) |
 | `POST /v1/price/explain` | `X-API-Key` | same body → `{decision, contributions[]}` — SHAP contributions, the HITL "why" (contract: `ExplainResponse`) |
 | `POST /v1/prices` | `X-API-Key` | `{"items": [...≤100...]}` → array of DecisionRecords |
 | `GET /v1/decisions?limit=N` | `X-API-Key` | most recent N (1–100) DecisionRecords |

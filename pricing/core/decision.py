@@ -38,6 +38,30 @@ def fingerprint(sku: str, model_version: str, model_input: dict[str, float]) -> 
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def compute_impact(served_price: float, model_input: dict[str, float]) -> dict | None:
+    """Expected impact of this price (pure, core-only — no forecasting claims).
+
+    unit_margin  = served - cost            (always, when cost is known)
+    projected    = unit_margin × rate_24h × 24h, at CURRENT observed velocity
+                   — omitted when velocity is absent, basis says so honestly.
+    Returns None when cost is unknown: no margin can be computed, and a made-up
+    one would falsify the audit (red-team rule: never fabricate impact).
+    """
+    cost = model_input.get("base_cost")
+    if cost is None or cost != cost or served_price <= 0:  # missing or NaN
+        return None
+    unit_margin = float(served_price) - float(cost)
+    impact: dict = {
+        "unit_margin": round(unit_margin, 4),
+        "margin_pct": round(unit_margin / float(served_price), 4),
+        "basis": "current_velocity",
+    }
+    rate = model_input.get("demand_rate_24h")
+    if rate is not None and rate == rate:  # present and not NaN
+        impact["projected_daily_margin"] = round(float(rate) * 24.0 * unit_margin, 4)
+    return impact
+
+
 def build_record(
     *,
     sku: str,
@@ -91,6 +115,9 @@ def build_record(
         "policy_pack": policy_pack,
         "fingerprint": fingerprint(sku, model_version, model_input),
     }
+    impact = compute_impact(served_price, model_input)
+    if impact is not None:
+        record["impact"] = impact  # optional: pre-impact records simply lack it
     _arm = record["policy_arm"]
     assert _arm in _ARMS
     return record

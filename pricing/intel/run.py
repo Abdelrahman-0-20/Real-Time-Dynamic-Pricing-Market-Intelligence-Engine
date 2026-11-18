@@ -35,6 +35,31 @@ class _SystemClock:
         return datetime.now(timezone.utc)
 
 
+def persist_state(var_dir, stats: dict, sink, mode: str) -> pathlib.Path:
+    """Write var/intel_state.json — the cold path's own output artifact.
+
+    BOTH entry points call this (`python -m pricing.intel.run` and
+    `pricingctl crawl run`): the API's GET /v1/signals reads this file, so
+    whichever command a user runs, the state lands. Keys must stay identical
+    between the two callers — one format, one reader.
+    """
+    var_dir = pathlib.Path(var_dir)
+    var_dir.mkdir(parents=True, exist_ok=True)
+    state = {
+        "ran_at": datetime.now(timezone.utc).isoformat(),
+        "signals_written": stats["signals_written"],
+        "quarantined": stats["quarantined"],
+        "advisories": stats["advisories"],
+        "sources": stats["sources"],
+        "signals": sink.signals,
+        "quarantine_records": sink.quarantines,
+        "mode": mode,
+    }
+    path = var_dir / "intel_state.json"
+    path.write_text(json.dumps(state, indent=2) + "\n")
+    return state
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m pricing.intel.run",
@@ -95,6 +120,11 @@ def main(argv: list[str] | None = None) -> int:
     stats["signals"] = len(sink.signals)
     stats["quarantine_records"] = sink.quarantines
     stats["feature_store_wired"] = pipeline.has_feature_store
+
+    # Persist the artifact GET /v1/signals reads — one format, both entry
+    # points (this command and `pricingctl crawl run`) write the same file.
+    persist_state(_REPO_ROOT / "var", stats, sink,
+                  mode="http" if args.http else "fixture")
 
     if args.json:
         print(json.dumps(stats, indent=2))

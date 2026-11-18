@@ -20,6 +20,15 @@ const state = {
 // ---------------------------------------------------------------- transport
 
 async function api(path, options = {}) {
+  // Pre-flight: catch a key pasted into the API field BEFORE the request
+  // (the Tauri scope error it produces is cryptic).
+  if (!/^https?:\/\/.+/.test(state.base)) {
+    throw new Error(
+      `API base is not a URL (got '${String(state.base).slice(0, 40)}'). ` +
+        "Fix: paste http://127.0.0.1:8000 into the API field — or just paste the " +
+        "key again, it will be auto-detected"
+    );
+  }
   const response = await fetch(`${state.base}${path}`, {
     ...options,
     headers: {
@@ -88,6 +97,14 @@ async function priceExplain() {
       <p><b>stale</b> ${esc(d.stale_features.join(", ") || "none")}
          · <b>dropped</b> ${esc(d.dropped_features.join(", ") || "none")}</p>
       <p><b>trace</b> ${esc(d.trace_id)}</p>
+      <p><b>impact</b> ${
+        d.impact
+          ? `unit ${fmt(d.impact.unit_margin)} (${(d.impact.margin_pct * 100).toFixed(1)}%)` +
+            (d.impact.projected_daily_margin != null
+              ? ` · projected daily ${fmt(d.impact.projected_daily_margin)} at current velocity`
+              : " · velocity unavailable")
+          : "— (no cost in this snapshot)"
+      }</p>
       <p><b>pack</b> ${esc(d.policy_pack.market)}/${esc(d.policy_pack.version)}
          (${esc(d.policy_pack.status)})</p>
     </div>
@@ -196,26 +213,43 @@ document.addEventListener("click", async (event) => {
   }
 });
 
+const URL_RE = /^https?:\/\/.+/;
+
+/** Auto-detect what the user pasted: a URL goes to the API field, anything
+ *  else (a key) goes to the Key field — paste-anything-here works. */
+function autoRoute(field, rawValue) {
+  const value = rawValue.trim();
+  if (!value) return null;
+  const looksLikeUrl = URL_RE.test(value);
+  if (field === "base" && looksLikeUrl) return { base: value };
+  if (field === "key" && !looksLikeUrl) return { key: value };
+  if (field === "base") return { key: value };   // key pasted into the URL box
+  return { base: value };                         // URL pasted into the key box
+}
+
 for (const [id, key] of [["base", "pc.base"], ["key", "pc.key"]]) {
   const input = $(`#${id}`);
   input.value = state[id];
   input.addEventListener("change", () => {
-    const value = input.value.trim();
-    // Papercut guard: the API field is a URL, the Key field is the secret.
-    // Putting the key here produced a confusing Tauri scope error — say it plainly.
-    if (id === "base" && value && !/^https?:\/\/.+/.test(value)) {
+    const routed = autoRoute(id, input.value);
+    if (!routed) return;
+    for (const [name, value] of Object.entries(routed)) {
+      state[name] = value;
+      localStorage.setItem(name === "base" ? "pc.base" : "pc.key", value);
+      const target = $(`#${name}`);
+      if (target) target.value = value;
+    }
+    if (id === "base" && !URL_RE.test(input.value.trim())) {
       showError(
         new Error(
-          `the API field expects a URL, not a key (got '${value.slice(0, 40)}')\n` +
-            "Fix: set it to http://127.0.0.1:8000 and paste the key into the Key field"
+          "that looks like an API key — saved to the Key field; " +
+            "the API field keeps http://127.0.0.1:8000"
         )
       );
-      input.value = state.base; // restore the last good URL
-      return;
+    } else {
+      clearError();
     }
-    state[id] = value;
-    localStorage.setItem(key, value);
-    if (id === "base" && value) loadStatus().catch((error) => showError(error));
+    loadStatus().catch((error) => showError(error));
   });
 }
 

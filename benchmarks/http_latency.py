@@ -47,16 +47,19 @@ def _free_port() -> int:
         return sock.getsockname()[1]
 
 
-def _start_server(port: int, workers: int = 2) -> subprocess.Popen:
+def _start_server(port: int, workers: int = 2, log_path: str = "/tmp/pricing-bench-server.log") -> subprocess.Popen:
     env = {**os.environ, "PRICING_API_KEY": API_KEY}
     env.pop("PRICING_API_DEV", None)
+    # Server output goes to a FILE, never devnull: the first bench run failed
+    # with a bare "HTTP 500" and no traceback because we discarded the log.
+    log = open(log_path, "w", encoding="utf-8")
     return subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "pricing.api.main:create_app",
          "--factory", "--ws", "wsproto",  # system websockets copy is too old for uvicorn
          "--workers", str(workers),
-         "--port", str(port), "--host", "127.0.0.1", "--log-level", "warning"],
+         "--port", str(port), "--host", "127.0.0.1", "--log-level", "info"],
         cwd=str(_REPO_ROOT), env=env,
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        stdout=log, stderr=subprocess.STDOUT,
     )
 
 

@@ -73,6 +73,21 @@
     },
     "unclamped_price": { "type": ["number", "null"], "description": "Raw model output before guardrails — required for the explain/HITL view." },
     "degraded": { "type": "boolean", "description": "True when rule-based fallback or critical features were missing." },
+    "impact": {
+      "type": "object",
+      "description": "Expected business impact of this price (their question 4). OPTIONAL: records written before this field existed simply lack it and stay valid. basis=current_velocity means projected_daily_margin is observed velocity × unit margin — NOT a forecast (forecast arrives with the forecasting module).",
+      "additionalProperties": false,
+      "required": ["unit_margin", "margin_pct", "basis"],
+      "properties": {
+        "unit_margin": { "type": "number", "description": "served_price - base_cost" },
+        "margin_pct": { "type": "number", "description": "unit_margin / served_price (fraction)" },
+        "projected_daily_margin": {
+          "type": ["number", "null"],
+          "description": "unit_margin × demand_rate_24h × 24 — at current observed velocity; null when velocity is missing/stale-dropped"
+        },
+        "basis": { "enum": ["current_velocity"] }
+      }
+    },
     "fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$", "description": "hash(request, model_version, feature_snapshot) — idempotency + replay key." }
   },
   "allOf": [
