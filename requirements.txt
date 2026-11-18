@@ -19,3 +19,4 @@ matplotlib
 openpyxl
 # Tests
 pytest
+streamlit

@@ -32,7 +32,7 @@ graph TD
 
 ## The steps
 
-### Step 1 — P0a: Expected impact in every decision
+### Step 1 — P0a: Expected impact in every decision ✅ DONE (192 tests)
 - **Delivers**: `impact {unit_margin, margin_pct, projected_daily_margin, basis}` in
   the DecisionRecord (additive, optional), computed purely in core; console
   explain row; API docs.
@@ -41,7 +41,7 @@ graph TD
   `impact`) still render.
 - **Effort**: small. **Rollback**: single revert, no migration.
 
-### Step 2 — P0b: UCI real-data training + EDA
+### Step 2 — P0b: UCI real-data training + EDA ✅ DONE (+48.7% skill vs naive)
 - **Delivers**: UCI retail dataset downloader (open, no auth), loader →
   `fv-2026.11` feature mapping, EDA report (distributions, price/demand
   scatter, correlation), model trained on real data through the **same eval
@@ -52,7 +52,7 @@ graph TD
 - **Effort**: medium. **Rollback**: model artifacts are versioned — swap back
   to synthetic baseline by pointer, no code revert needed.
 
-### Step 3 — Streamlit dashboard v1
+### Step 3 — Streamlit dashboard v1 ✅ DONE (2026-11-18)
 - **Delivers**: `dashboard/app.py` — 7 sections over the **existing** API +
   decision log: Market Overview (price/margin history), Competitor
   Intelligence (signal timeline, competitor vs our price), Recommendations

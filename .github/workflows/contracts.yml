@@ -13,7 +13,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install test dependencies
-        run: pip install jsonschema pytest import-linter redis fakeredis confluent-kafka fastapi "uvicorn[standard]" httpx wsproto
+        run: pip install jsonschema pytest import-linter redis fakeredis confluent-kafka fastapi "uvicorn[standard]" httpx wsproto pandas matplotlib openpyxl streamlit
       - name: Contract gate + dependency rule (pytest)
         run: python -m pytest -q
       - name: Import-linter (ADR-002 hexagonal boundary)
