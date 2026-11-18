@@ -3,7 +3,7 @@
 **Turns live sales telemetry + scraped market news into audited price decisions in < 50 ms** — with hard guardrails, an LLM extraction layer, and test gates that make every claim on this page verifiable.
 
 ```
-![tests](https://img.shields.io/badge/tests-165_passed-blue)   (measured: latency gate PASS · eval f1 1.00 · 10 ADRs)
+![tests](https://img.shields.io/badge/tests-189_passed,_5_skipped-blue)   (measured: latency gate PASS · eval f1 1.00 · 10 ADRs)
 ```
 
 ---
@@ -35,17 +35,37 @@ LLM turns both into structured signals: "competitor_stockout" (conf 0.92)
 
 ```bash
 git clone <repo> && cd <repo>
-pip install jsonschema pytest xgboost scikit-learn numpy redis fakeredis confluent-kafka import-linter
+python3 -m pip install jsonschema pytest xgboost scikit-learn numpy redis fakeredis confluent-kafka import-linter fastapi uvicorn wsproto
 
-python -m pricing.training.train      # baseline model (synthetic market, known ground truth)
-python -m pytest -q                   # contract gates + end-to-end suite
-python benchmarks/latency.py          # p99 latency gate (50 ms budget)
+python3 -m pricing.training.train      # baseline model (synthetic market, known ground truth)
+python3 -m pytest -q                   # contract gates + end-to-end suite
+python3 benchmarks/latency.py          # p99 latency gate (50 ms budget)
 ./pricingctl status                   # operator CLI (20 ms startup)
 ./pricingctl price explain --sku SKU-4471   # the WHY behind a price
-python -m pricing.intel.run           # crawl seeds -> signals -> quarantine report
+python3 -m pricing.intel.run           # crawl seeds -> signals -> quarantine report
 ```
 
-Optional real infra (Docker): `docker compose up -d` + `export REDIS_URL=redis://localhost:6379/0 KAFKA_BROKER=localhost:19092` → 3 gated integration tests activate against real Redis + Kafka.
+> This machine only provides `python3` (there is no bare interpreter alias) — every command above is written to run as-is.
+
+Optional real infra (Docker): `docker compose up -d` + `export REDIS_URL=redis://localhost:6379/0 KAFKA_BROKER=localhost:19092` → 3 gated integration tests activate against real Redis + Kafka (without them the suite runs with those 3 skipped: baseline `python3 -m pytest -q` → 189 passed, 5 skipped).
+
+### HTTP Pricing API
+
+Auth is **fail-closed**: the API refuses to start (a `RuntimeError`) unless you give it `PRICING_API_KEY`, or explicitly opt into `PRICING_API_DEV=1`. Both options, exactly as in [docs/API.md](docs/API.md):
+
+```bash
+export PRICING_API_KEY=$(openssl rand -hex 32)   # real use: random key, sent as X-API-Key
+uvicorn pricing.api.main:create_app --factory --ws wsproto --port 8000
+# local unauthenticated experiment ONLY:
+PRICING_API_DEV=1 uvicorn pricing.api.main:create_app --factory --ws wsproto
+```
+
+The fastapi app is served by `uvicorn` over a WebSocket handled by `wsproto` (the system-packaged `websockets` is too old for uvicorn's default).
+
+## Troubleshooting
+
+- **`docker compose up -d` fails** (`docker: 'compose' is not a docker command`, and there is no `docker-compose` binary either): this machine has neither the compose plugin nor the legacy standalone installed. Install the plugin: `sudo apt install docker-compose-plugin`, then retry `docker compose up -d`.
+- **Integration tests stay skipped**: the flip-on integration tests require real infra and their env vars — start the stack (`docker compose up -d`), then `export REDIS_URL=redis://localhost:6379/0 KAFKA_BROKER=localhost:19092` before `python3 -m pytest -q`. Without both, those 3 tests skip (baseline 189 passed, 5 skipped).
 
 ## Measured results (and their honest scope)
 
@@ -54,7 +74,7 @@ Optional real infra (Docker): `docker compose up -d` + `export REDIS_URL=redis:/
 | Serve latency | **p99 0.8 ms** (budget 50 ms) | in-process code path on dev hardware; production network hops not yet measured |
 | Extraction eval | **f1 1.00** (27 labeled cases, recorded baseline) | lexicon extractor on its own corpus; LLM must beat the *re-baselined* harder corpus to ship |
 | Model quality | **0.34% mean regret** vs true oracle | trained on synthetic demand with known elasticity — that's *why* regret is measurable |
-| Test suite | **165 passed** (0 skipped with brokers; 3 env-gated without) | local stack, synthetic data |
+| Test suite | **189 passed, 5 skipped** (194 total; the 5 are env-gated without brokers — a 0-skipped run needs brokers/real infra, so that figure is broker-dependent and not claimed here) | local stack, synthetic data |
 | Operator CLI | **20 ms** cold start | file-read-only commands |
 
 ## Architecture
@@ -107,7 +127,7 @@ Every non-obvious choice is an ADR with trade-offs and rejected alternatives —
 | `pricing/evals` | extraction eval harness vs `evals/baseline.json` |
 | `docs/contracts` | 5 JSON Schemas — the published boundaries between contexts |
 | `docs/` | architecture, ADRs, feature manifest, latency protocol, CLI spec |
-| `tests/` | 165 tests incl. adversarial (prompt injection, guardrail bypass, mislabeled evals) |
+| `tests/` | 194 tests (189 passed, 5 skipped) incl. adversarial (prompt injection, guardrail bypass, mislabeled evals) |
 
 ## Status & roadmap — honest
 
